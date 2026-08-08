@@ -10,60 +10,95 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize Session State for Authentication
+# Session States Initialize करें
 if "app_authenticated" not in st.session_state:
     st.session_state.app_authenticated = False
 
+if "admin_authenticated" not in st.session_state:
+    st.session_state.admin_authenticated = False
+
+# 1. सामान्य यूजर लॉगिन (App View)
 def check_app_password():
-    """Returns True if the user entered the correct global app password."""
-    def password_entered():
-        # आप यहाँ अपना मनचाहा पासवर्ड सेट कर सकते हैं (वर्तमान में: ck_admin_2026)
-        if st.session_state["global_password_input"] == "CK":
+    def app_pass_entered():
+        # 🔑 यहाँ सामान्य यूजर/ऑपरेटर का पासवर्ड सेट करें
+        if st.session_state["app_pass_input"] == "ck_user_2026":
             st.session_state.app_authenticated = True
-            del st.session_state["global_password_input"]
+            del st.session_state["app_pass_input"]
         else:
             st.session_state.app_authenticated = False
-            st.error("😕 गलत पासवर्ड! कृपया सही पासवर्ड दर्ज करें।")
+            st.error("😕 गलत पासवर्ड! कृपया सही ऑपरेटर पासवर्ड दर्ज करें।")
 
     if not st.session_state.app_authenticated:
         st.markdown("<br><br>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.markdown("## 🔐 CK PDF PROCESSOR - LOGIN")
-            st.markdown("यह एक सुरक्षित एप्लिकेशन है। आगे बढ़ने के लिए कृपया एडमिन पासवर्ड दर्ज करें।")
+            st.markdown("## 📄 CK PDF PROCESSOR - LOGIN")
+            st.markdown("इनवॉइस प्रोसेसिंग ज़ोन में प्रवेश करने के लिए पासवर्ड दर्ज करें:")
             st.text_input(
-                "Enter Application Password", 
+                "Enter App Password", 
                 type="password", 
-                on_change=password_entered, 
-                key="global_password_input"
+                on_change=app_pass_entered, 
+                key="app_pass_input"
             )
         return False
     return True
 
+# 2. एडमिन लॉगिन (Shipper & Rules Configuration)
+def check_admin_password():
+    st.markdown("---")
+    st.subheader("🔐 Admin Configuration Zone")
+    
+    if not st.session_state.admin_authenticated:
+        st.info("⚠️ शिपर जोड़ने या मैपिंग रूल्स बदलने के लिए एडमिन पासवर्ड आवश्यक है।")
+        
+        def admin_pass_entered():
+            # 🔑 यहाँ सुरक्षित एडमिन पासवर्ड सेट करें
+            if st.session_state["admin_pass_input"] == "ck_admin_2026":
+                st.session_state.admin_authenticated = True
+                del st.session_state["admin_pass_input"]
+                st.success("🎉 एडमिन एक्सेस मिल गया है!")
+                st.rerun()
+            else:
+                st.session_state.admin_authenticated = False
+                st.error("😕 गलत एडमिन पासवर्ड!")
+
+        st.text_input(
+            "Enter Admin Password", 
+            type="password", 
+            on_change=admin_pass_entered, 
+            key="admin_pass_input"
+        )
+    else:
+        col_a, col_b = st.columns([8, 2])
+        with col_a:
+            st.success("🔓 Admin Mode Active (आप एडमिन के रूप में लॉग इन हैं)")
+        with col_b:
+            if st.button("🔒 Lock Admin Zone", use_container_width=True):
+                st.session_state.admin_authenticated = False
+                st.rerun()
+                
+        # एडमिन पैनल लोड होगा
+        render_shipper_data()
+
 def main():
-    # 🚀 सबसे पहले ग्लोबल पासवर्ड चेक होगा
+    # सबसे पहले ऐप का जनरल पासवर्ड चेक होगा
     if not check_app_password():
         return
 
-    # यदि पासवर्ड सही है, तो ऐप का मुख्य इंटरफेस दिखेगा
     st.title("📄 CK PDF PROCESSOR")
     st.markdown("---")
 
-    # 1. Main Processing Zone (SS1)
+    # 1. Main Processing Zone (सबके लिए उपलब्ध जो ऐप पासवर्ड से अंदर हैं)
     render_processor()
 
-    st.markdown("---")
+    # 2. नीचे एडमिन कॉन्फ़िगरेशन ज़ोन (अलग एडमिन पासवर्ड से सुरक्षित)
+    check_admin_password()
     
-    # 2. Main Page के बिल्कुल नीचे Shipper Management & Mapping Rules Zone
-    st.subheader("⚙️ Shipper Management & Mapping Rules")
-    
-    with st.expander("🛠️ Open Shipper Configuration Panel (Click to Expand)", expanded=False):
-        render_shipper_data()
-        
-    # नीचे लॉगआउट बटन ताकि कोई भी यूजर काम करने के बाद सेशन सुरक्षित बंद कर सके
+    # ऐप से पूरी तरह बाहर आने (Logout) के लिए बटन
     st.markdown("<br><hr>", unsafe_allow_html=True)
-    if st.button("🔒 Lock / Logout App"):
+    if st.button("🚪 Logout Complete App"):
         st.session_state.app_authenticated = False
+        st.session_state.admin_authenticated = False
         st.rerun()
 
 if __name__ == "__main__":
