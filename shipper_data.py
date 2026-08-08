@@ -147,12 +147,12 @@ def render_shipper_data():
         with col_gs1: shipper_info["target_sheet_link"] = st.text_input("Sheet Link / ID:", value=shipper_info.get("target_sheet_link", ""))
         with col_gs2: shipper_info["target_tab_name"] = st.text_input("Tab Name:", value=shipper_info.get("target_tab_name", "Sheet1"))
 
-        # 3. Excel Download Header Configuration (Single Horizontal Scroll Bar Layout)
+        # 3. Excel Download Header Configuration (Pure HTML Horizontal Scroll Layout)
         st.write("---")
         c_eh_head, c_eh_btn = st.columns([7, 3])
         with c_eh_head:
             st.subheader("📊 Excel Download Header Configuration")
-            st.caption("एक्सेल की तरह सिंगल हॉरिजॉन्टल स्क्रॉल बार (दाएं-बाएं स्क्रॉल करें):")
+            st.caption("एक्सेल की तरह हॉरिजॉन्टल लेआउट (दाएं-बाएं स्क्रॉल करें):")
         with c_eh_btn:
             if st.button("➕ Add Header", use_container_width=True):
                 add_excel_header_dialog(selected_shipper)
@@ -163,62 +163,62 @@ def render_shipper_data():
         updated_excel_headers = {}
         header_items = list(shipper_info["excel_headers"].items())
         
-        # 🚀 परफेक्‍ट एक्सेल स्टाइल CSS: सिर्फ नीचे एक ही स्क्रॉल बार आएगा और कार्ड्स एक लाइन में रहेंगे
+        # 🚀 परफेक्‍ट CSS: Streamlit के फालतू लेआउट को हटाकर एक ही लाइन में कार्ड सेट करना
         st.markdown("""
         <style>
-        .excel-single-scroll-box {
+        .excel-table-scroll-box {
             display: flex;
             flex-direction: row;
             overflow-x: auto;
-            gap: 15px;
-            padding: 15px 10px;
+            gap: 12px;
+            padding: 15px 5px;
             width: 100%;
-            background-color: #f1f3f5;
-            border-radius: 10px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
             border: 1px solid #ced4da;
             white-space: nowrap;
         }
-        .excel-single-scroll-box::-webkit-scrollbar {
-            height: 12px;
+        .excel-table-scroll-box::-webkit-scrollbar {
+            height: 10px;
         }
-        .excel-single-scroll-box::-webkit-scrollbar-thumb {
+        .excel-table-scroll-box::-webkit-scrollbar-thumb {
             background: #adb5bd;
-            border-radius: 6px;
+            border-radius: 5px;
         }
-        .excel-single-scroll-box::-webkit-scrollbar-track {
+        .excel-table-scroll-box::-webkit-scrollbar-track {
             background: #e9ecef;
-            border-radius: 6px;
+            border-radius: 5px;
         }
-        .col-item-card {
-            min-width: 170px;
-            max-width: 170px;
+        .excel-col-item {
+            flex: 0 0 160px;
+            width: 160px;
             background: #ffffff;
             border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border-radius: 6px;
+            padding: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             display: inline-block;
             vertical-align: top;
+            white-space: normal;
         }
         </style>
         """, unsafe_allow_html=True)
         
-        # मुख्य सिंगल स्क्रॉल कंटेनर
-        st.markdown('<div class="excel-single-scroll-box">', unsafe_allow_html=True)
+        # आउटर स्क्रॉल कंटेनर शुरू
+        st.markdown('<div class="excel-table-scroll-box">', unsafe_allow_html=True)
         
-        # Streamlit के पंगा लेने से बचने के लिए हम एक ही लूप में सारे इनपुट जनरेट करेंगे
         for idx, (h_name, h_col) in enumerate(header_items):
-            st.markdown(f'<div class="col-item-card">', unsafe_allow_html=True)
+            st.markdown('<div class="excel-col-item">', unsafe_allow_html=True)
             
             # हेडर नाम इनपुट
-            e_hname = st.text_input("H", value=h_name, key=f"unique_eh_{idx}", label_visibility="collapsed")
+            e_hname = st.text_input("H", value=h_name, key=f"html_eh_{idx}", label_visibility="collapsed")
             
-            # कॉलम लैटर और डिलीट बटन के लिए सब-कॉलम
-            sc1, sc2 = st.columns([3, 1])
-            with sc1:
-                e_hcol = st.text_input("C", value=h_col, key=f"unique_ec_{idx}", label_visibility="collapsed").upper()
-            with sc2:
-                if st.button("🗑️", key=f"unique_del_{idx}"):
+            # कॉलम लैटर और डिलीट बटन के लिए इनलाइन लेआउट
+            col_in1, col_in2 = st.columns([3, 1])
+            with col_in1:
+                e_hcol = st.text_input("C", value=h_col, key=f"html_ec_{idx}", label_visibility="collapsed").upper()
+            with col_in2:
+                if st.button("🗑️", key=f"html_del_{idx}"):
                     del shipper_info["excel_headers"][h_name]
                     st.rerun()
                     
