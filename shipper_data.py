@@ -133,12 +133,12 @@ def render_shipper_data():
         with col_gs1: shipper_info["target_sheet_link"] = st.text_input("Sheet Link / ID:", value=shipper_info.get("target_sheet_link", ""))
         with col_gs2: shipper_info["target_tab_name"] = st.text_input("Tab Name:", value=shipper_info.get("target_tab_name", "Sheet1"))
 
-        # 3. Horizontal Scrollable Excel Header Configuration
+        # 3. Excel Download Header Configuration (Excel Style Horizontal Scroll Table)
         st.write("---")
         c_eh_head, c_eh_btn = st.columns([7, 3])
         with c_eh_head:
             st.subheader("📊 Excel Download Header Configuration")
-            st.caption("नीचे स्क्रॉल करें (हॉरिजॉन्टल):")
+            st.caption("एक्सेल की तरह हॉरिजॉन्टल कॉलम लेआउट (दाएं-बाएं स्क्रॉल करें):")
         with c_eh_btn:
             if st.button("➕ Add Header", use_container_width=True):
                 add_excel_header_dialog(selected_shipper)
@@ -149,39 +149,50 @@ def render_shipper_data():
         updated_excel_headers = {}
         header_items = list(shipper_info["excel_headers"].items())
         
-        # HTML/CSS for horizontal scroll
+        # 🚀 एक्सेल जैसी पतली और हॉरिजॉन्टल स्क्रॉल होने वाली टेबल के लिए CSS
         st.markdown("""
         <style>
-        .scroll-container {
+        .excel-scroll-wrapper {
             display: flex;
             overflow-x: auto;
-            gap: 10px;
-            padding: 10px 0;
+            gap: 12px;
+            padding: 15px 5px;
+            width: 100%;
             white-space: nowrap;
-        }
-        .header-box {
-            min-width: 150px;
-            max-width: 150px;
-            border: 1px solid #ddd;
-            padding: 10px;
+            background-color: #f1f3f4;
             border-radius: 8px;
-            background: #fdfdfd;
+            border: 1px solid #dadce0;
+        }
+        .excel-col-card {
+            min-width: 140px;
+            max-width: 140px;
+            flex: 0 0 auto;
+            background: #ffffff;
+            border: 1px solid #bdc1c6;
+            border-radius: 6px;
+            padding: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         </style>
         """, unsafe_allow_html=True)
         
-        st.markdown('<div class="scroll-container">', unsafe_allow_html=True)
+        st.markdown('<div class="excel-scroll-wrapper">', unsafe_allow_html=True)
+        
         for idx, (h_name, h_col) in enumerate(header_items):
-            st.markdown('<div class="header-box">', unsafe_allow_html=True)
-            e_hname = st.text_input("H", value=h_name, key=f"eh_{idx}", label_visibility="collapsed")
-            sub_c1, sub_c2 = st.columns([2, 1])
-            with sub_c1: e_hcol = st.text_input("C", value=h_col, key=f"ec_{idx}", label_visibility="collapsed").upper()
+            st.markdown('<div class="excel-col-card">', unsafe_allow_html=True)
+            e_hname = st.text_input("H", value=h_name, key=f"eh_ex_{idx}", label_visibility="collapsed")
+            
+            sub_c1, sub_c2 = st.columns([3, 1])
+            with sub_c1:
+                e_hcol = st.text_input("C", value=h_col, key=f"ec_ex_{idx}", label_visibility="collapsed").upper()
             with sub_c2:
-                if st.button("🗑️", key=f"del_{idx}"):
+                if st.button("🗑️", key=f"del_ex_{idx}"):
                     del shipper_info["excel_headers"][h_name]
                     st.rerun()
-            updated_excel_headers[e_hname] = e_hcol
+                    
             st.markdown('</div>', unsafe_allow_html=True)
+            updated_excel_headers[e_hname] = e_hcol
+            
         st.markdown('</div>', unsafe_allow_html=True)
         shipper_info["excel_headers"] = updated_excel_headers
 
