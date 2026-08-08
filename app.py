@@ -18,7 +18,7 @@ def check_app_password():
     """Returns True if the user entered the correct global app password."""
     def password_entered():
         # आप यहाँ अपना मनचाहा पासवर्ड सेट कर सकते हैं (वर्तमान में: ck_admin_2026)
-        if st.session_state["global_password_input"] == "ck_admin_2026":
+        if st.session_state["global_password_input"] == "CK":
             st.session_state.app_authenticated = True
             del st.session_state["global_password_input"]
         else:
