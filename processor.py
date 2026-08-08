@@ -5,16 +5,15 @@ import re
 from io import BytesIO
 
 from parser_sample import extract_welspun_items, map_items_to_excel_dynamic
-from shipper_data import fetch_data_from_google_sheet, ensure_default_shipper
+from shipper_data import fetch_data_from_github, ensure_default_shipper
 from pdf_engine import apply_rule_filter, extract_header_value
-from google_sheet_sync import load_template_from_sheet
 
 def render_processor():
-    fetch_data_from_google_sheet()
+    fetch_data_from_github()
     ensure_default_shipper()
     
     st.header("📄 CK PDF PROCESSOR")
-    st.caption("एक साथ कई स्टैंडर्ड PDF इनवॉइस अपलोड करें, प्रोसेस करें और एक्सेल डाउनलोड करें या गूगल शीट पर भेजें।")
+    st.caption("एक साथ कई स्टैंडर्ड PDF इनवॉइस अपलोड करें, प्रोसेस करें और एक्सेल डाउनलोड करें।")
     
     shippers_list = list(st.session_state["shipper_database"].keys())
     
@@ -26,7 +25,6 @@ def render_processor():
             
             st.subheader("📑 Upload PDF's")
             
-            # 🚀 मल्टी-फाइल अपलोडर (एक साथ 10, 20, 25... जितने चाहें उतने PDF सेलेक्ट करें)
             uploaded_pdfs = st.file_uploader(
                 "एक या एक से अधिक स्टैंडर्ड इनवॉइस PDF चुनें", 
                 type=["pdf"], 
@@ -40,26 +38,17 @@ def render_processor():
                 st.write("---")
                 st.markdown("#### ⚡ Processing Actions")
                 
-                col_btn1, col_btn2 = st.columns(2)
-                
-                # 🚀 प्रोसेस करने का बटन
-                with col_btn1:
-                    process_clicked = st.button("🚀 Process All PDFs", type="primary", use_container_width=True)
-                
-                if process_clicked:
+                if st.button("🚀 Process All PDFs", type="primary", use_container_width=True):
                     with st.spinner(f"कुल {len(uploaded_pdfs)} PDF फाइलें प्रोसेस हो रही हैं... कृपया प्रतीक्षा करें..."):
                         rules = shipper_info.get("mapping_rules", {})
                         item_table_rules = shipper_info.get("item_table_rules", {})
-                        assigned_parser = shipper_info.get("item_table_rule_name", "parser_welspun").strip().lower()
+                        assigned_parser = "parser_sample"
                         
                         igst_cfg = shipper_info.get("igst_config", {})
                         lut_kws = igst_cfg.get("lut_keywords", "")
                         paid_kws = igst_cfg.get("paid_keywords", "")
                         
-                        wb = load_template_from_sheet(selected_shipper)
-                        if wb is None:
-                            wb = openpyxl.Workbook()
-                            
+                        wb = openpyxl.Workbook()
                         ws = wb["INV"] if "INV" in wb.sheetnames else wb.active
                         
                         first_inv_no = "INV"
@@ -93,11 +82,10 @@ def render_processor():
                                 pos = r_info.get("position", "Right (आगे)")
                                 target_cell = r_info.get("cell", "").strip().upper()
                                 mode = r_info.get("match_mode", "Exact Word")
-                                stop_kw = r_info.get("stop_kw", "").strip()
                                 flt = r_info.get("filter", "None")
                                 fallback_val = r_info.get("fallback", "").strip()
                                 
-                                found_val = extract_header_value(pdf_lines, pdf_text, kw, pos, mode, stop_kw, flt, field_label=field, pdf_bytes=file_bytes_cache)
+                                found_val = extract_header_value(pdf_lines, pdf_text, kw, pos, mode, "", flt, field_label=field, pdf_bytes=file_bytes_cache)
                                 
                                 if not found_val or not found_val.strip():
                                     if fallback_val:
@@ -136,21 +124,8 @@ def render_processor():
                             for i_name, i_info in item_table_rules.items():
                                 i_type = i_info.get("type", "")
                                 i_rule = i_info.get("rule", "")
-                                if i_rule.startswith("'") and len(i_rule) > 1:
-                                    i_rule = i_rule[1:].strip()
                                 i_col = i_info.get("col", "K")
-                                
-                                actual_rule_val = i_rule
-                                if i_type == "Header Field Mapping":
-                                    matched_header_key = i_rule.lower()
-                                    if matched_header_key in inv_data_dict:
-                                        actual_rule_val = inv_data_dict[matched_header_key]
-                                
-                                resolved_item_rules[i_name] = {
-                                    "col": i_col,
-                                    "type": i_type if i_type != "Header Field Mapping" else "Constant Text",
-                                    "rule": actual_rule_val
-                                }
+                                resolved_item_rules[i_name] = {"col": i_col, "type": i_type, "rule": i_rule}
 
                             parsed_items = extract_welspun_items(pdf_lines, pdf_text=pdf_text)
                             
@@ -175,24 +150,14 @@ def render_processor():
                         final_filename = f"{clean_inv}_{short_shipper}_BatchProcessed.xlsx"
                         
                         st.session_state["processed_file_ready"] = {"filename": final_filename, "data": output.getvalue()}
-                        st.success("🎉 सभी PDF सफलताપर्वक प्रोसेस हो गए हैं! अब नीचे दिए गए बटन्स से डाउनलोड करें या गूगल शीट पर भेजें।")
+                        st.success("🎉 सभी PDF सफलताપर्वक प्रोसेस हो गए हैं! अब नीचे डाउनलोड बटन से फाइल डाउनलोड करें।")
                 
-                # 🚀 प्रोसेसिंग के बाद दिखने वाले दो मुख्य एक्शन बटन (डाउनलोड और गूगल शीट पुश)
                 if st.session_state.get("processed_file_ready", None):
                     st.write("---")
-                    st.markdown("#### 📥 Download or Push Options")
-                    
-                    col_d1, col_d2 = st.columns(2)
-                    
-                    with col_d1:
-                        st.download_button(
-                            label=f"📥 Download Excel ({st.session_state['processed_file_ready']['filename']})",
-                            data=st.session_state['processed_file_ready']['data'],
-                            file_name=st.session_state['processed_file_ready']['filename'],
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True
-                        )
-                        
-                    with col_d2:
-                        if st.button("☁️ Push to Google Sheet", use_container_width=True):
-                            st.info("ℹ️ गूगल शीट एपीआई इंटीग्रेशन यहाँ ट्रिगर होगा (डेटा पुश कर दिया गया है)।")
+                    st.download_button(
+                        label=f"📥 Download Excel ({st.session_state['processed_file_ready']['filename']})",
+                        data=st.session_state['processed_file_ready']['data'],
+                        file_name=st.session_state['processed_file_ready']['filename'],
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
