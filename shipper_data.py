@@ -89,6 +89,10 @@ def show_field_test_dialog(field_name, rule_data, result_val):
 def add_custom_header_field_dialog(selected_shipper):
     new_field = st.text_input("Field Name (उदा: Invoice No):")
     if st.button("Save"):
+        ensure_default_shipper()
+        if selected_shipper not in st.session_state["shipper_database"]:
+            st.session_state["shipper_database"][selected_shipper] = {}
+            
         rules = st.session_state["shipper_database"][selected_shipper].setdefault("mapping_rules", {})
         rules[new_field.strip()] = {"keyword": "", "position": "Right (आगे)", "match_mode": "Exact Word", "filter": "None"}
         st.rerun()
@@ -98,6 +102,10 @@ def add_item_col_dialog(selected_shipper):
     c_name = st.text_input("Heading Name (उदा: Net Weight):")
     c_col = st.text_input("Excel Column (उदा: L):").upper()
     if st.button("Save"):
+        ensure_default_shipper()
+        if selected_shipper not in st.session_state["shipper_database"]:
+            st.session_state["shipper_database"][selected_shipper] = {}
+            
         item_rules = st.session_state["shipper_database"][selected_shipper].setdefault("item_table_rules", {})
         item_rules[c_name] = {"col": c_col, "type": "PDF Row Item", "rule": ""}
         st.rerun()
@@ -107,11 +115,17 @@ def add_excel_header_dialog(selected_shipper):
     h_name = st.text_input("Header Name (उदा: Total Amount):")
     h_col = st.text_input("Excel Column (उदा: C):").upper()
     if st.button("Save"):
+        ensure_default_shipper()
+        if selected_shipper not in st.session_state["shipper_database"]:
+            st.session_state["shipper_database"][selected_shipper] = {}
+            
         headers = st.session_state["shipper_database"][selected_shipper].setdefault("excel_headers", {})
         headers[h_name.strip()] = h_col.strip()
         st.rerun()
 
 def render_shipper_data():
+    ensure_default_shipper()
+    
     if "github_data_loaded" not in st.session_state:
         fetch_data_from_github(show_toast=False)
         st.session_state["github_data_loaded"] = True
@@ -138,7 +152,7 @@ def render_shipper_data():
         c_eh_head, c_eh_btn = st.columns([7, 3])
         with c_eh_head:
             st.subheader("📊 Excel Download Header Configuration")
-            st.caption("एक्सेल की तरह हॉरिजॉन्टल कॉलम लेआउट (जितने मर्जी कॉलम जोड़ें, नीचे स्क्रॉल बार आएगा):")
+            st.caption("एक्सेल की तरह हॉरिजॉन्टल स्क्रॉल लेआउट (जितने मर्जी कॉलम जोड़ें, नीचे स्क्रॉल बार आएगा):")
         with c_eh_btn:
             if st.button("➕ Add Header", use_container_width=True):
                 add_excel_header_dialog(selected_shipper)
@@ -149,48 +163,67 @@ def render_shipper_data():
         updated_excel_headers = {}
         header_items = list(shipper_info["excel_headers"].items())
         
-        # 🚀 असली एक्सेल जैसा हॉरिजॉन्टल स्क्रॉल लेआउट बनाने के लिए Streamlit कॉलम का इस्तेमाल
-        # हम सभी हेडर्स को एक ही रो में रखेंगे और हर कॉलम की फिक्स चौड़ाई तय करेंगे
-        if header_items:
-            # स्टایلिंग ताकि हर कॉलम कॉम्पैक्ट और सही दिखे
-            st.markdown("""
-            <style>
-            div[data-testid="column"] {
-                min-width: 150px !important;
-                max-width: 150px !important;
-                flex: 0 0 150px !important;
-            }
-            .excel-table-container {
-                display: flex;
-                overflow-x: auto;
-                gap: 10px;
-                padding-bottom: 15px;
-                width: 100%;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-
-            # स्क्रॉल करने योग्य आउटर डिव
-            st.markdown('<div class="excel-table-container">', unsafe_allow_html=True)
+        # 🚀 पक्का हॉरिजॉन्टल स्क्रॉल बार और फिक्स चौड़ाई वाला CSS (बिना टूटे)
+        st.markdown("""
+        <style>
+        .excel-scroll-wrapper {
+            display: flex;
+            flex-direction: row;
+            overflow-x: auto;
+            gap: 12px;
+            padding: 15px 5px;
+            width: 100%;
+            white-space: nowrap;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        .excel-card-item {
+            flex: 0 0 160px;
+            width: 160px;
+            background: #ffffff;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            padding: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            display: inline-block;
+            vertical-align: top;
+        }
+        /* स्क्रॉल बार को सुंदर और विजिबल बनाने के लिए */
+        .excel-scroll-wrapper::-webkit-scrollbar {
+            height: 10px;
+        }
+        .excel-scroll-wrapper::-webkit-scrollbar-thumb {
+            background: #adb5bd;
+            border-radius: 5px;
+        }
+        .excel-scroll-wrapper::-webkit-scrollbar-track {
+            background: #e9ecef;
+            border-radius: 5px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # HTML आउटर स्क्रॉल कंटेनर शुरू
+        st.markdown('<div class="excel-scroll-wrapper">', unsafe_allow_html=True)
+        
+        for idx, (h_name, h_col) in enumerate(header_items):
+            # हर कॉलम के लिए अलग बॉक्स ताकि वे एक ही लाइन में रहें
+            st.markdown(f'<div class="excel-card-item">', unsafe_allow_html=True)
+            e_hname = st.text_input("H", value=h_name, key=f"eh_h_key_{idx}", label_visibility="collapsed")
             
-            cols = st.columns(len(header_items))
-            for idx, (h_name, h_col) in enumerate(header_items):
-                with cols[idx]:
-                    with st.container(border=True):
-                        e_hname = st.text_input("H", value=h_name, key=f"eh_table_{idx}", label_visibility="collapsed")
-                        
-                        sub_c1, sub_c2 = st.columns([2, 1])
-                        with sub_c1:
-                            e_hcol = st.text_input("C", value=h_col, key=f"ec_table_{idx}", label_visibility="collapsed").upper()
-                        with sub_c2:
-                            if st.button("🗑️", key=f"del_table_{idx}"):
-                                del shipper_info["excel_headers"][h_name]
-                                st.rerun()
-                                
-                        updated_excel_headers[e_hname] = e_hcol
-                        
+            sub_c1, sub_c2 = st.columns([2.2, 1])
+            with sub_c1:
+                e_hcol = st.text_input("C", value=h_col, key=f"ec_c_key_{idx}", label_visibility="collapsed").upper()
+            with sub_c2:
+                if st.button("🗑️", key=f"del_btn_key_{idx}"):
+                    del shipper_info["excel_headers"][h_name]
+                    st.rerun()
+                    
             st.markdown('</div>', unsafe_allow_html=True)
+            updated_excel_headers[e_hname] = e_hcol
             
+        st.markdown('</div>', unsafe_allow_html=True)
         shipper_info["excel_headers"] = updated_excel_headers
 
         # 4. Save Button
