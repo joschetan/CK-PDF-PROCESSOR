@@ -16,6 +16,8 @@ def ensure_default_shipper():
             "mapping_rules": {},
             "item_table_rules": {},
             "item_table_rule_name": "parser_sample",
+            "target_sheet_link": "",
+            "target_tab_name": "Sheet1",
             "igst_config": {"lut_keywords": "", "paid_keywords": ""}
         }
 
@@ -44,6 +46,8 @@ def fetch_data_from_github(show_toast=False):
                     "mapping_rules": {},
                     "item_table_rules": {},
                     "item_table_rule_name": "parser_sample",
+                    "target_sheet_link": "",
+                    "target_tab_name": "Sheet1",
                     "igst_config": {"lut_keywords": "", "paid_keywords": ""}
                 }
             
@@ -53,6 +57,8 @@ def fetch_data_from_github(show_toast=False):
                 shipper_info["mapping_rules"] = s_data.get("mapping_rules", {})
                 shipper_info["item_table_rules"] = s_data.get("item_table_rules", {})
                 shipper_info["item_table_rule_name"] = s_data.get("item_table_rule_name", "parser_sample")
+                shipper_info["target_sheet_link"] = s_data.get("target_sheet_link", "")
+                shipper_info["target_tab_name"] = s_data.get("target_tab_name", "Sheet1")
                 shipper_info["igst_config"] = s_data.get("igst_config", {"lut_keywords": "", "paid_keywords": ""})
 
         if show_toast: st.toast("✅ GitHub से सभी रूल्स लोड हो गए!")
@@ -135,6 +141,8 @@ def render_shipper_data():
                         "mapping_rules": {},
                         "item_table_rules": {},
                         "item_table_rule_name": "parser_sample",
+                        "target_sheet_link": "",
+                        "target_tab_name": "Sheet1",
                         "igst_config": {"lut_keywords": "", "paid_keywords": ""}
                     }
                     st.success(f"🎉 नया शिपर '{s_clean}' सफलतापूर्वक जुड़ गया है!")
@@ -151,7 +159,7 @@ def render_shipper_data():
             st.write(f"### ⚙️ प्रोफाइल सेटअप और रूल्स: **{selected_shipper}**")
             shipper_info = st.session_state["shipper_database"][selected_shipper]
             
-            # 🚀 डायनामिक पार्सर सिलेक्शन ड्रॉपडाउन (फिक्स नहीं है, नए पार्सर जोड़े जा सकते हैं)
+            # 1. डायनामिक पार्सर सिलेक्शन ड्रॉपडाउन
             available_parsers = ["parser_sample"]
             current_parser = shipper_info.get("item_table_rule_name", "parser_sample")
             if current_parser not in available_parsers:
@@ -166,6 +174,27 @@ def render_shipper_data():
                 key=f"sel_parser_{selected_shipper}"
             )
             shipper_info["item_table_rule_name"] = updated_parser_choice
+
+            # 2. Target Google Sheet Link और Sheet/Tab Name इनपुट फील्ड्स
+            st.markdown("#### ☁️ Target Google Sheet Destination Config")
+            col_gs1, col_gs2 = st.columns(2)
+            with col_gs1:
+                target_sheet_link = st.text_input(
+                    "Target Google Sheet Link / ID:",
+                    value=shipper_info.get("target_sheet_link", ""),
+                    key=f"target_sheet_link_{selected_shipper}",
+                    placeholder="यहाँ गूगल शीट की लिंक या ID दर्ज करें"
+                )
+            with col_gs2:
+                target_tab_name = st.text_input(
+                    "Target Tab / Sheet Name:",
+                    value=shipper_info.get("target_tab_name", "Sheet1"),
+                    key=f"target_tab_name_{selected_shipper}",
+                    placeholder="उदा: INV या Sheet1"
+                )
+            
+            shipper_info["target_sheet_link"] = target_sheet_link
+            shipper_info["target_tab_name"] = target_tab_name
 
             st.write("---")
             st.subheader("🧪 Instant PDF Upload & Live Data Test Engine")
@@ -267,7 +296,7 @@ def render_shipper_data():
             shipper_info["item_table_rules"] = updated_item_rules
             st.write("---")
             
-            # 🚀 GitHub पर रूल्स सेव करने का बटन (डायनामिक पार्सर चॉइस के साथ)
+            # 🚀 GitHub पर रूल्स सेव करने का बटन (Google Sheet लिंक और टैब नेम सहित)
             if st.button("💾 Save Rules to GitHub JSON", type="primary", use_container_width=True, key="btn_save_rules_github"):
                 shippers_payload = {}
                 for s_name, s_data in st.session_state["shipper_database"].items():
@@ -275,6 +304,8 @@ def render_shipper_data():
                         "mapping_rules": s_data.get("mapping_rules", {}),
                         "item_table_rules": s_data.get("item_table_rules", {}),
                         "item_table_rule_name": s_data.get("item_table_rule_name", "parser_sample"),
+                        "target_sheet_link": s_data.get("target_sheet_link", ""),
+                        "target_tab_name": s_data.get("target_tab_name", "Sheet1"),
                         "igst_config": s_data.get("igst_config", {})
                     }
                 
