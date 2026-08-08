@@ -5,7 +5,6 @@ from io import BytesIO
 
 from pdf_engine import extract_header_value
 from github_sync import fetch_rules_from_github, push_rules_to_github
-from parser_sample import extract_welspun_items, map_items_to_excel_dynamic
 
 def ensure_default_shipper():
     if "shipper_database" not in st.session_state:
@@ -53,7 +52,7 @@ def fetch_data_from_github(show_toast=False):
             if isinstance(s_data, dict):
                 shipper_info["mapping_rules"] = s_data.get("mapping_rules", {})
                 shipper_info["item_table_rules"] = s_data.get("item_table_rules", {})
-                shipper_info["item_table_rule_name"] = "parser_sample"
+                shipper_info["item_table_rule_name"] = s_data.get("item_table_rule_name", "parser_sample")
                 shipper_info["igst_config"] = s_data.get("igst_config", {"lut_keywords": "", "paid_keywords": ""})
 
         if show_toast: st.toast("✅ GitHub से सभी रूल्स लोड हो गए!")
@@ -123,7 +122,7 @@ def render_shipper_data():
     st.header("🏢 Shipper Management & GitHub Rules Sync")
     st.caption("सटीक डेटा एक्सट्रैक्शन और GitHub JSON आधारित रूल्स कॉन्फ़िगरेशन।")
     
-    with st.expander("➕ Add New Shipper (नया शिपर जोड़ें)", expanded=False):
+    with st.expander("➕ Add New Shipper (नया शिपर जोड़ें)", expanded=False):
         new_shipper_name = st.text_input("नया शिपर कंपनी का नाम दर्ज करें:", key="input_new_shipper_name")
         
         if st.button("Create New Shipper Profile", type="primary", key="btn_create_shipper"):
@@ -138,7 +137,7 @@ def render_shipper_data():
                         "item_table_rule_name": "parser_sample",
                         "igst_config": {"lut_keywords": "", "paid_keywords": ""}
                     }
-                    st.success(f"🎉 नया शिपर '{s_clean}' सफलतापूर्वक जुड़ गया है!")
+                    st.success(f"🎉 नया शिपर '{s_clean}' सफलतापूर्वक जुड़ गया है!")
                     st.rerun()
                 else:
                     st.warning("⚠️ यह शिपर पहले से मौजूद है!")
@@ -152,9 +151,21 @@ def render_shipper_data():
             st.write(f"### ⚙️ प्रोफाइल सेटअप और रूल्स: **{selected_shipper}**")
             shipper_info = st.session_state["shipper_database"][selected_shipper]
             
-            # 🚀 केवल parser_sample फिक्स कर दिया गया है
-            shipper_info["item_table_rule_name"] = "parser_sample"
-            st.info("📌 Active Parser File: **parser_sample.py** (Fixed)")
+            # 🚀 डायनामिक पार्सर सिलेक्शन ड्रॉपडाउन (फिक्स नहीं है, नए पार्सर जोड़े जा सकते हैं)
+            available_parsers = ["parser_sample"]
+            current_parser = shipper_info.get("item_table_rule_name", "parser_sample")
+            if current_parser not in available_parsers:
+                available_parsers.append(current_parser)
+                
+            p_idx = available_parsers.index(current_parser) if current_parser in available_parsers else 0
+            
+            updated_parser_choice = st.selectbox(
+                "📌 इस शिपर के लिए एक्टिव पार्सर रूल (Parser File) चुनें:", 
+                available_parsers, 
+                index=p_idx, 
+                key=f"sel_parser_{selected_shipper}"
+            )
+            shipper_info["item_table_rule_name"] = updated_parser_choice
 
             st.write("---")
             st.subheader("🧪 Instant PDF Upload & Live Data Test Engine")
@@ -256,14 +267,14 @@ def render_shipper_data():
             shipper_info["item_table_rules"] = updated_item_rules
             st.write("---")
             
-            # 🚀 GitHub पर रूल्स सेव करने का बटन
+            # 🚀 GitHub पर रूल्स सेव करने का बटन (डायनामिक पार्सर चॉइस के साथ)
             if st.button("💾 Save Rules to GitHub JSON", type="primary", use_container_width=True, key="btn_save_rules_github"):
                 shippers_payload = {}
                 for s_name, s_data in st.session_state["shipper_database"].items():
                     shippers_payload[s_name] = {
                         "mapping_rules": s_data.get("mapping_rules", {}),
                         "item_table_rules": s_data.get("item_table_rules", {}),
-                        "item_table_rule_name": "parser_sample",
+                        "item_table_rule_name": s_data.get("item_table_rule_name", "parser_sample"),
                         "igst_config": s_data.get("igst_config", {})
                     }
                 
