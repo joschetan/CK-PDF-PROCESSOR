@@ -30,7 +30,7 @@ def main():
         st.info("⚠️ कॉन्फ़िगरेशन और मैपिंग रूल्स बदलने के लिए एडमिन पासवर्ड दर्ज करें।")
         
         def password_entered():
-            if st.session_state["password_input"] == "ck_admin_2026":
+            if st.session_state["password_input"] == "CK26":
                 st.session_state.authenticated = True
                 del st.session_state["password_input"]
             else:
