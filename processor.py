@@ -5,8 +5,7 @@ import re
 from io import BytesIO
 
 # 🚀 Sirf dedicated parsers import honge
-from parser_welspun import extract_welspun_items, map_items_to_excel_dynamic
-from parser_bkt import extract_bkt_items
+from parser_sample import extract_welspun_items, map_items_to_excel_dynamic
 
 from shipper_data import fetch_data_from_google_sheet, ensure_default_shipper
 from pdf_engine import apply_rule_filter, extract_header_value
