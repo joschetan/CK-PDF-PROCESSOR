@@ -149,7 +149,7 @@ def render_shipper_data():
         updated_excel_headers = {}
         header_items = list(shipper_info["excel_headers"].items())
         
-        # Custom CSS for Horizontal Scrolling
+        # CSS for Horizontal Scrolling
         st.markdown(
             """
             <style>
@@ -157,12 +157,14 @@ def render_shipper_data():
                 display: flex;
                 overflow-x: auto;
                 gap: 15px;
-                padding-bottom: 15px;
+                padding: 15px 5px;
                 width: 100%;
                 white-space: nowrap;
+                border: 1px solid #eee;
+                border-radius: 10px;
             }
             .header-card-fixed {
-                min-width: 200px;
+                min-width: 180px;
                 background: #f8f9fa;
                 padding: 10px;
                 border-radius: 8px;
@@ -174,7 +176,6 @@ def render_shipper_data():
         )
         
         st.markdown('<div class="scroll-wrapper">', unsafe_allow_html=True)
-        
         for idx, (h_name, h_col) in enumerate(header_items):
             st.markdown('<div class="header-card-fixed">', unsafe_allow_html=True)
             e_hname = st.text_input("H", value=h_name, key=f"eh_{idx}", label_visibility="collapsed")
@@ -187,7 +188,6 @@ def render_shipper_data():
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
             updated_excel_headers[e_hname] = e_hcol
-            
         st.markdown('</div>', unsafe_allow_html=True)
         shipper_info["excel_headers"] = updated_excel_headers
 
