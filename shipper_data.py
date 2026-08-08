@@ -89,10 +89,6 @@ def show_field_test_dialog(field_name, rule_data, result_val):
 def add_custom_header_field_dialog(selected_shipper):
     new_field = st.text_input("Field Name (उदा: Invoice No):")
     if st.button("Save"):
-        ensure_default_shipper()
-        if selected_shipper not in st.session_state["shipper_database"]:
-            st.session_state["shipper_database"][selected_shipper] = {}
-            
         rules = st.session_state["shipper_database"][selected_shipper].setdefault("mapping_rules", {})
         rules[new_field.strip()] = {"keyword": "", "position": "Right (आगे)", "match_mode": "Exact Word", "filter": "None"}
         st.rerun()
@@ -102,10 +98,6 @@ def add_item_col_dialog(selected_shipper):
     c_name = st.text_input("Heading Name (उदा: Net Weight):")
     c_col = st.text_input("Excel Column (उदा: L):").upper()
     if st.button("Save"):
-        ensure_default_shipper()
-        if selected_shipper not in st.session_state["shipper_database"]:
-            st.session_state["shipper_database"][selected_shipper] = {}
-            
         item_rules = st.session_state["shipper_database"][selected_shipper].setdefault("item_table_rules", {})
         item_rules[c_name] = {"col": c_col, "type": "PDF Row Item", "rule": ""}
         st.rerun()
@@ -115,10 +107,6 @@ def add_excel_header_dialog(selected_shipper):
     h_name = st.text_input("Header Name (उदा: Total Amount):")
     h_col = st.text_input("Excel Column (उदा: C):").upper()
     if st.button("Save"):
-        ensure_default_shipper()
-        if selected_shipper not in st.session_state["shipper_database"]:
-            st.session_state["shipper_database"][selected_shipper] = {}
-            
         headers = st.session_state["shipper_database"][selected_shipper].setdefault("excel_headers", {})
         headers[h_name.strip()] = h_col.strip()
         st.rerun()
@@ -147,12 +135,12 @@ def render_shipper_data():
         with col_gs1: shipper_info["target_sheet_link"] = st.text_input("Sheet Link / ID:", value=shipper_info.get("target_sheet_link", ""))
         with col_gs2: shipper_info["target_tab_name"] = st.text_input("Tab Name:", value=shipper_info.get("target_tab_name", "Sheet1"))
 
-        # 3. Excel Download Header Configuration (True Excel-like Single Horizontal Scroll Layout)
+        # 3. Excel Download Header Configuration
         st.write("---")
         c_eh_head, c_eh_btn = st.columns([7, 3])
         with c_eh_head:
             st.subheader("📊 Excel Download Header Configuration")
-            st.caption("एक्सेल की तरह सिंगल हॉरिजॉन्टल स्क्रॉल बार (दाएं-बाएं स्क्रॉल करें, सारे कॉलम एक लाइन में रहेंगे):")
+            st.caption("एक्सेल की तरह सिंगल हॉरिजॉन्टल स्क्रॉल बार वाला लेआउट:")
         with c_eh_btn:
             if st.button("➕ Add Header", use_container_width=True):
                 add_excel_header_dialog(selected_shipper)
@@ -163,71 +151,68 @@ def render_shipper_data():
         updated_excel_headers = {}
         header_items = list(shipper_info["excel_headers"].items())
         
-        # 🚀 शुद्ध CSS: बिना किसी Streamlit कॉलम के, केवल एक आउटर कंटेनर जिसमें सिंगल स्क्रॉल बार हो
+        # 🚀 पक्का और अचूक CSS: Streamlit के हर कॉलम को ब्लॉक से बदलकर 'inline-block' और एक ही रो में सेट करना
         st.markdown("""
         <style>
-        .excel-table-wrapper {
-            display: flex;
-            flex-direction: row;
-            overflow-x: auto;
-            gap: 12px;
-            padding: 15px 10px 25px 10px;
-            width: 100%;
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            border: 1px solid #ced4da;
-            white-space: nowrap;
+        /* Streamlit के पूरे कंटेनर को हॉरिजॉन्टल स्क्रॉल में बदलना */
+        .element-container:has(.force-horizontal) {
+            width: 100% !important;
+            overflow-x: auto !important;
         }
-        .excel-table-wrapper::-webkit-scrollbar {
+        .force-horizontal {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 12px !important;
+            overflow-x: auto !important;
+            padding: 10px 5px 20px 5px !important;
+            width: 100% !important;
+        }
+        /* हर सिंगल कॉलम कार्ड की फिक्स चौड़ाई */
+        .force-horizontal > div {
+            flex: 0 0 170px !important;
+            min-width: 170px !important;
+            max-width: 170px !important;
+            background: #ffffff !important;
+            border: 1px solid #dee2e6 !important;
+            border-radius: 8px !important;
+            padding: 10px !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        }
+        /* स्क्रॉल बार डिजाइन */
+        .force-horizontal::-webkit-scrollbar {
             height: 12px;
         }
-        .excel-table-wrapper::-webkit-scrollbar-thumb {
+        .force-horizontal::-webkit-scrollbar-thumb {
             background: #adb5bd;
             border-radius: 6px;
         }
-        .excel-table-wrapper::-webkit-scrollbar-track {
+        .force-horizontal::-webkit-scrollbar-track {
             background: #e9ecef;
             border-radius: 6px;
-        }
-        .excel-col-box {
-            min-width: 170px;
-            max-width: 170px;
-            background: #ffffff;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            padding: 10px;
-            display: inline-block;
-            vertical-align: top;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            white-space: normal;
         }
         </style>
         """, unsafe_allow_html=True)
 
-        # हम Streamlit के text_input को सीधे चलाएंगे और HTML डिव से उन्हें एक लाइन में रखेंगे
-        st.markdown('<div class="excel-table-wrapper">', unsafe_allow_html=True)
+        # हम एक कस्टम क्लास के साथ डिव शुरू करेंगे
+        st.markdown('<div class="force-horizontal">', unsafe_allow_html=True)
         
-        # हर हेडर के लिए इनपुट्स सीधे रेंडर होंगे बिना st.columns के टूटने के डर के
+        # सभी आइटम्स को एक ही लाइन में रेंडर करें
+        cols = st.columns(len(header_items))
         for idx, (h_name, h_col) in enumerate(header_items):
-            # हर एक कॉलम के लिए फिक्स चौड़ाई का बॉक्स
-            col_container = st.container()
-            with col_container:
-                # हम हर कार्ड को visually अलग दिखाने के लिए मार्जिन देंगे
-                st.markdown(f'<div style="min-width: 170px; max-width: 170px; display: inline-block; vertical-align: top; background: #ffffff; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px; margin-right: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">', unsafe_allow_html=True)
-                
-                e_hname = st.text_input("H", value=h_name, key=f"exc_h_{idx}", label_visibility="collapsed")
+            with cols[idx]:
+                e_hname = st.text_input("H", value=h_name, key=f"f_h_{idx}", label_visibility="collapsed")
                 
                 sub_c1, sub_c2 = st.columns([2.5, 1])
                 with sub_c1:
-                    e_hcol = st.text_input("C", value=h_col, key=f"exc_c_{idx}", label_visibility="collapsed").upper()
+                    e_hcol = st.text_input("C", value=h_col, key=f"f_c_{idx}", label_visibility="collapsed").upper()
                 with sub_c2:
-                    if st.button("🗑️", key=f"exc_del_{idx}"):
+                    if st.button("🗑️", key=f"f_del_{idx}"):
                         del shipper_info["excel_headers"][h_name]
                         st.rerun()
                         
-                st.markdown('</div>', unsafe_allow_html=True)
                 updated_excel_headers[e_hname] = e_hcol
-
+                
         st.markdown('</div>', unsafe_allow_html=True)
         shipper_info["excel_headers"] = updated_excel_headers
 
