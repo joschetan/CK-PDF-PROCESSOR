@@ -66,16 +66,7 @@ def fetch_data_from_google_sheet(show_toast=False):
             if t_bytes:
                 shipper_info.setdefault("uploaded_files", {})["Full Job Excel Format File"] = t_bytes
 
-        for s_key in st.session_state["shipper_database"].keys():
-            igst_fetched = fetch_igst_config_from_sheet(s_key)
-            if igst_fetched and isinstance(igst_fetched, dict):
-                current_igst = st.session_state["shipper_database"][s_key].get("igst_config", {})
-                if not current_igst.get("lut_keywords"):
-                    current_igst["lut_keywords"] = igst_fetched.get("lut_keywords", "")
-                if not current_igst.get("paid_keywords"):
-                    current_igst["paid_keywords"] = igst_fetched.get("paid_keywords", "")
-                st.session_state["shipper_database"][s_key]["igst_config"] = current_igst
-
+     
         if show_toast: st.toast("✅ गूगल शीट से रूल्स और टेम्पलेट लोड हो गए!")
     except Exception as e:
         if show_toast: st.error(f"फ़ैच एरर: {str(e)}")
