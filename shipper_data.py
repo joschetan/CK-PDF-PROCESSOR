@@ -8,7 +8,6 @@ from io import BytesIO
 from pdf_engine import extract_header_value, detect_igst_status
 from test_suite import render_universal_test_suite
 from google_sheet_sync import fetch_all_from_sheet, push_rules_to_sheet, push_template_file_to_sheet, get_val_case_insensitive, load_template_bytes_from_sheet
-from igst_config_sync import fetch_igst_config_from_sheet
 
 def ensure_default_shipper():
     if "shipper_database" not in st.session_state:
