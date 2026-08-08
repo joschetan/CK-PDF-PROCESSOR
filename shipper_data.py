@@ -18,6 +18,7 @@ def ensure_default_shipper():
             "item_table_rule_name": "parser_sample",
             "target_sheet_link": "",
             "target_tab_name": "Sheet1",
+            "excel_headers": {"Invoice No": "A", "Date": "B"},
             "igst_config": {"lut_keywords": "", "paid_keywords": ""}
         }
 
@@ -48,6 +49,7 @@ def fetch_data_from_github(show_toast=False):
                     "item_table_rule_name": "parser_sample",
                     "target_sheet_link": "",
                     "target_tab_name": "Sheet1",
+                    "excel_headers": {"Invoice No": "A", "Date": "B"},
                     "igst_config": {"lut_keywords": "", "paid_keywords": ""}
                 }
             
@@ -59,6 +61,7 @@ def fetch_data_from_github(show_toast=False):
                 shipper_info["item_table_rule_name"] = s_data.get("item_table_rule_name", "parser_sample")
                 shipper_info["target_sheet_link"] = s_data.get("target_sheet_link", "")
                 shipper_info["target_tab_name"] = s_data.get("target_tab_name", "Sheet1")
+                shipper_info["excel_headers"] = s_data.get("excel_headers", {"Invoice No": "A", "Date": "B"})
                 shipper_info["igst_config"] = s_data.get("igst_config", {"lut_keywords": "", "paid_keywords": ""})
 
         if show_toast: st.toast("✅ GitHub से सभी रूल्स लोड हो गए!")
@@ -120,6 +123,21 @@ def add_item_col_dialog(selected_shipper):
             st.success(f"🎉 कॉलम '{c_name}' जुड़ गया!")
             st.rerun()
 
+@st.dialog("➕ Add Excel Header")
+def add_excel_header_dialog(selected_shipper):
+    st.write("एक्सेल डाउनलोड के लिए नई हेडिंग और कॉलम जोड़ें:")
+    h_name = st.text_input("Header Name (उदा: Total Amount, GST No):")
+    h_col = st.text_input("Excel Column (उदा: C, D, Z):").upper()
+    
+    if st.button("Confirm & Add Header", type="primary"):
+        if not h_name.strip() or not h_col.strip():
+            st.error("हेडर नाम और कॉलम दोनों अनिवार्य हैं!")
+        else:
+            headers = st.session_state["shipper_database"][selected_shipper].setdefault("excel_headers", {})
+            headers[h_name.strip()] = h_col.strip()
+            st.success(f"🎉 हेडर '{h_name}' (कॉलम {h_col}) जुड़ गया!")
+            st.rerun()
+
 def render_shipper_data():
     if "github_data_loaded" not in st.session_state:
         fetch_data_from_github(show_toast=False)
@@ -143,6 +161,7 @@ def render_shipper_data():
                         "item_table_rule_name": "parser_sample",
                         "target_sheet_link": "",
                         "target_tab_name": "Sheet1",
+                        "excel_headers": {"Invoice No": "A", "Date": "B"},
                         "igst_config": {"lut_keywords": "", "paid_keywords": ""}
                     }
                     st.success(f"🎉 नया शिपर '{s_clean}' सफलतापूर्वक जुड़ गया है!")
@@ -195,6 +214,32 @@ def render_shipper_data():
             
             shipper_info["target_sheet_link"] = target_sheet_link
             shipper_info["target_tab_name"] = target_tab_name
+
+            # 3. नया: Excel Download Header Configuration Section
+            st.write("---")
+            c_eh_head, c_eh_btn = st.columns([7, 3])
+            with c_eh_head:
+                st.subheader("📊 Excel Download Header Configuration")
+                st.caption("ब्लैंक एक्सेल डाउनलोड करते समय पहली रो (Row 1) में आने वाली हेडर्स और उनके कॉलम सेट करें:")
+            with c_eh_btn:
+                if st.button("➕ Add Excel Header", use_container_width=True, key="btn_add_ex_header_main"):
+                    add_excel_header_dialog(selected_shipper)
+            
+            if "excel_headers" not in shipper_info:
+                shipper_info["excel_headers"] = {"Invoice No": "A", "Date": "B"}
+                
+            updated_excel_headers = {}
+            for h_name, h_col in list(shipper_info["excel_headers"].items()):
+                ec1, ec2, ec3 = st.columns([4.0, 2.0, 0.8])
+                with ec1: e_hname = st.text_input(f"eh_{h_name}", value=h_name, label_visibility="collapsed")
+                with ec2: e_hcol = st.text_input(f"ec_{h_name}", value=h_col, label_visibility="collapsed").upper()
+                with ec3:
+                    if st.button("🗑️", key=f"del_eh_{h_name}"):
+                        del shipper_info["excel_headers"][h_name]
+                        st.rerun()
+                updated_excel_headers[e_hname] = e_hcol
+            
+            shipper_info["excel_headers"] = updated_excel_headers
 
             st.write("---")
             st.subheader("🧪 Instant PDF Upload & Live Data Test Engine")
@@ -296,7 +341,7 @@ def render_shipper_data():
             shipper_info["item_table_rules"] = updated_item_rules
             st.write("---")
             
-            # 🚀 GitHub पर रूल्स सेव करने का बटन (Google Sheet लिंक और टैब नेम सहित)
+            # 🚀 GitHub पर रूल्स सेव करने का बटन (Excel Headers सहित)
             if st.button("💾 Save Rules to GitHub JSON", type="primary", use_container_width=True, key="btn_save_rules_github"):
                 shippers_payload = {}
                 for s_name, s_data in st.session_state["shipper_database"].items():
@@ -306,6 +351,7 @@ def render_shipper_data():
                         "item_table_rule_name": s_data.get("item_table_rule_name", "parser_sample"),
                         "target_sheet_link": s_data.get("target_sheet_link", ""),
                         "target_tab_name": s_data.get("target_tab_name", "Sheet1"),
+                        "excel_headers": s_data.get("excel_headers", {"Invoice No": "A", "Date": "B"}),
                         "igst_config": s_data.get("igst_config", {})
                     }
                 
