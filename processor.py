@@ -4,20 +4,19 @@ import pdfplumber
 import re
 from io import BytesIO
 
-# 🚀 Sirf dedicated parsers import honge
+# 🚀 केवल उपलब्ध और जरूरी पार्सर इम्पोर्ट करें
 from parser_sample import extract_welspun_items, map_items_to_excel_dynamic
 
 from shipper_data import fetch_data_from_google_sheet, ensure_default_shipper
 from pdf_engine import apply_rule_filter, extract_header_value
 from google_sheet_sync import load_template_from_sheet
-from supporting_engine import extract_data_from_supporting_file
 
 def render_processor():
     fetch_data_from_google_sheet()
     ensure_default_shipper()
     
-    st.header("📤 Invoice Processing Zone (Multi-Document)")
-    st.caption("इनवॉइस PDF या Excel के साथ-साथ GST Invoice और DEEC Declaration अपलोड करने और पर्टिकुलर सेल/कॉलम में भेजने का ज़ोन।")
+    st.header("📤 Invoice Processing Zone")
+    st.caption("इनवॉइस PDF या Excel अपलोड करें और कॉन्फ़िगर किए गए रूल्स के अनुसार एक्सेल जनरेट करें।")
     
     shippers_list = list(st.session_state["shipper_database"].keys())
     
@@ -32,21 +31,17 @@ def render_processor():
             
             inv_count = st.session_state[f"inv_count_{selected_shipper}"]
             
-            st.subheader("📑 Upload Invoices & Supporting Documents")
+            st.subheader("📑 Upload Invoices")
             
             uploaded_batches = []
             for i in range(inv_count):
                 st.markdown(f"#### ➡️ Invoice Set #{i+1}")
-                col_inv, col_gst, col_deec = st.columns(3)
+                col_inv, col_space = st.columns([4, 6])
                 
                 with col_inv:
                     pdf_f = st.file_uploader(f" मुख्य इनवॉइस (PDF / Excel) #{i+1}", type=["pdf", "xlsx", "xls"], key=f"inv_pdf_{selected_shipper}_{i}")
-                with col_gst:
-                    gst_f = st.file_uploader(f" GST Invoice #{i+1} (PDF/Excel)", type=["pdf", "xlsx", "xls"], key=f"gst_file_{selected_shipper}_{i}")
-                with col_deec:
-                    deec_f = st.file_uploader(f" DEEC Decl. #{i+1} (PDF/Excel)", type=["pdf", "xlsx", "xls"], key=f"deec_file_{selected_shipper}_{i}")
                     
-                uploaded_batches.append((i+1, pdf_f, gst_f, deec_f))
+                uploaded_batches.append((i+1, pdf_f))
                 st.write("---")
             
             col_b1, col_b2, col_space = st.columns([2, 2, 6])
@@ -65,12 +60,11 @@ def render_processor():
             
             valid_batches = [b for b in uploaded_batches if b[1] is not None]
             
-            if valid_batches and st.button("🚀 Process & Generate Excel with Supporting Docs", type="primary", use_container_width=True):
-                with st.spinner(f"कुल {len(valid_batches)} इनवॉइस सेट प्रोसेस हो रहे हैं..."):
+            if valid_batches and st.button("🚀 Process & Generate Excel", type="primary", use_container_width=True):
+                with st.spinner(f"कुल {len(valid_batches)} इनवॉइस प्रोसेस हो रहे हैं..."):
                     rules = shipper_info.get("mapping_rules", {})
                     item_table_rules = shipper_info.get("item_table_rules", {})
                     
-                    # 🚀 सीधा गूगल शीट / डेटाबेस से असाइंड पार्सर रूल पढ़ें (कोई अनुमान नहीं)
                     assigned_parser = shipper_info.get("item_table_rule_name", "parser_welspun").strip().lower()
                     
                     igst_cfg = shipper_info.get("igst_config", {})
@@ -87,11 +81,10 @@ def render_processor():
                     overall_item_sr = 1
                     excel_write_row = 2
                     
-                    for inv_sr_number, inv_file, gst_file, deec_file in valid_batches:
+                    for inv_sr_number, inv_file in valid_batches:
                         pdf_text = ""
                         pdf_lines = []
                         
-                        # 🚀 पक्का करें कि PDF बाइट्स हमेशा सेशन स्टेट में कैच रहें ताकि बॉक्स एक्सट्रैक्शन फेल न हो
                         if inv_file:
                             file_bytes_cache = inv_file.getvalue()
                             st.session_state["cached_pdf_bytes"] = file_bytes_cache
@@ -104,19 +97,10 @@ def render_processor():
                                     if t:
                                         pdf_text += t + "\n"
                                         pdf_lines.extend(t.split("\n"))
-                        else:
-                            excel_text, _ = extract_data_from_supporting_file(inv_file)
-                            if excel_text:
-                                pdf_text = excel_text
-                                pdf_lines = excel_text.split("\n")
-                        
-                        gst_text, _ = extract_data_from_supporting_file(gst_file) if gst_file else ("", None)
-                        deec_text, _ = extract_data_from_supporting_file(deec_file) if deec_file else ("", None)
                         
                         current_inv_number = f"INV_{inv_sr_number}"
                         current_inv_date = ""
                         inv_data_dict = {}
-                        
                         summary_row = 1 + inv_sr_number
                         
                         for field, r_info in rules.items():
@@ -130,18 +114,9 @@ def render_processor():
                             stop_kw = r_info.get("stop_kw", "").strip()
                             flt = r_info.get("filter", "None")
                             fallback_val = r_info.get("fallback", "").strip()
-                            doc_source = r_info.get("logic", "Main Invoice")
                             
-                            target_lines, target_full_text = pdf_lines, pdf_text
-                            if "gst" in doc_source.lower() and gst_file:
-                                target_lines = gst_text.split("\n")
-                                target_full_text = gst_text
-                            elif "deec" in doc_source.lower() and deec_file:
-                                target_lines = deec_text.split("\n")
-                                target_full_text = deec_text
-                                
                             pdf_bytes = st.session_state.get("cached_pdf_bytes", None)
-                            found_val = extract_header_value(target_lines, target_full_text, kw, pos, mode, stop_kw, flt, field_label=field, pdf_bytes=pdf_bytes)
+                            found_val = extract_header_value(pdf_lines, pdf_text, kw, pos, mode, stop_kw, flt, field_label=field, pdf_bytes=pdf_bytes)
                             
                             if not found_val or not found_val.strip():
                                 if fallback_val:
@@ -151,20 +126,11 @@ def render_processor():
                             
                             if target_cell and "dynamic" not in target_cell.lower():
                                 try:
-                                    if "\n" in str(found_val):
-                                        col_letters = re.findall(r'[A-Za-z]+', target_cell)[0].upper()
-                                        start_row_num = int(re.findall(r'\d+', target_cell)[0]) if re.findall(r'\d+', target_cell) else summary_row
-                                        
-                                        lines = str(found_val).split("\n")
-                                        for idx, line_val in enumerate(lines):
-                                            current_row = start_row_num + idx
-                                            ws[f"{col_letters}{current_row}"] = line_val.strip()
+                                    if target_cell.isalpha():
+                                        cell_to_write = f"{target_cell}{summary_row}"
                                     else:
-                                        if target_cell.isalpha():
-                                            cell_to_write = f"{target_cell}{summary_row}"
-                                        else:
-                                            cell_to_write = target_cell
-                                        ws[cell_to_write] = found_val
+                                        cell_to_write = target_cell
+                                    ws[cell_to_write] = found_val
                                 except Exception:
                                     pass
                             
@@ -206,14 +172,7 @@ def render_processor():
                                 "rule": actual_rule_val
                             }
 
-                        # 🚀 शत-प्रतिशत सटीक पार्सर कॉलिंग (जो शिपर के लिए ड्रॉपडाउन से तय है, वही चलेगा)
-                        if assigned_parser == "parser_bkt":
-                            parsed_items = extract_bkt_items(pdf_lines)
-                        elif assigned_parser == "parser_welspun":
-                            parsed_items = extract_welspun_items(pdf_lines, pdf_text=pdf_text)
-                        else:
-                            # यदि कोई अन्य कस्टम पार्सर हो तो यहाँ सीधे जोड़ा जा सके
-                            parsed_items = extract_welspun_items(pdf_lines, pdf_text=pdf_text)
+                        parsed_items = extract_welspun_items(pdf_lines, pdf_text=pdf_text)
                         
                         ws, overall_item_sr, excel_write_row = map_items_to_excel_dynamic(
                             ws, parsed_items, resolved_item_rules,
@@ -233,10 +192,10 @@ def render_processor():
                     
                     short_shipper = selected_shipper.split(" ")[0].lower()
                     clean_inv = re.sub(r'[\\/*?:"<>|]', "", first_inv_no)
-                    final_filename = f"{clean_inv}_{short_shipper}_MultiDoc.xlsx"
+                    final_filename = f"{clean_inv}_{short_shipper}_Processed.xlsx"
                     
                     st.session_state["processed_file_ready"] = {"filename": final_filename, "data": output.getvalue()}
-                    st.success(f"🎉 सफलता! सपोर्टिंग डॉक्यूमेंट्स के साथ फाइल '{final_filename}' तैयार है!")
+                    st.success(f"🎉 सफलता! फाइल '{final_filename}' तैयार है!")
             
             if st.session_state.get("processed_file_ready", None):
                 st.download_button(
