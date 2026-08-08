@@ -133,12 +133,12 @@ def render_shipper_data():
         with col_gs1: shipper_info["target_sheet_link"] = st.text_input("Sheet Link / ID:", value=shipper_info.get("target_sheet_link", ""))
         with col_gs2: shipper_info["target_tab_name"] = st.text_input("Tab Name:", value=shipper_info.get("target_tab_name", "Sheet1"))
 
-        # 3. Excel Download Header Configuration (4-Column Grid)
+        # 3. Horizontal Scrollable Excel Header Configuration
         st.write("---")
         c_eh_head, c_eh_btn = st.columns([7, 3])
         with c_eh_head:
             st.subheader("📊 Excel Download Header Configuration")
-            st.caption("हेडर और उनके कॉलम सेट करें (4-कॉलम ग्रिड):")
+            st.caption("नीचे स्क्रॉल करें (हॉरिजॉन्टल):")
         with c_eh_btn:
             if st.button("➕ Add Header", use_container_width=True):
                 add_excel_header_dialog(selected_shipper)
@@ -149,29 +149,40 @@ def render_shipper_data():
         updated_excel_headers = {}
         header_items = list(shipper_info["excel_headers"].items())
         
-        # Grid Layout Logic
-        chunk_size = 4
-        for i in range(0, len(header_items), chunk_size):
-            chunk = header_items[i:i + chunk_size]
-            cols = st.columns(4)
-            for idx, (h_name, h_col) in enumerate(chunk):
-                with cols[idx]:
-                    with st.container(border=True):
-                        e_hname = st.text_input("H", value=h_name, key=f"eh_{i}_{idx}", label_visibility="collapsed")
-                        sub_c1, sub_c2 = st.columns([3, 1])
-                        with sub_c1:
-                            e_hcol = st.text_input("C", value=h_col, key=f"ec_{i}_{idx}", label_visibility="collapsed").upper()
-                        with sub_c2:
-                            if st.button("🗑️", key=f"del_eh_{i}_{idx}"):
-                                del shipper_info["excel_headers"][h_name]
-                                st.rerun()
-                        updated_excel_headers[e_hname] = e_hcol
-            
-            # Fill empty columns if chunk size < 4
-            for idx in range(len(chunk), 4):
-                with cols[idx]:
-                    st.empty()
-                    
+        # HTML/CSS for horizontal scroll
+        st.markdown("""
+        <style>
+        .scroll-container {
+            display: flex;
+            overflow-x: auto;
+            gap: 10px;
+            padding: 10px 0;
+            white-space: nowrap;
+        }
+        .header-box {
+            min-width: 150px;
+            max-width: 150px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 8px;
+            background: #fdfdfd;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('<div class="scroll-container">', unsafe_allow_html=True)
+        for idx, (h_name, h_col) in enumerate(header_items):
+            st.markdown('<div class="header-box">', unsafe_allow_html=True)
+            e_hname = st.text_input("H", value=h_name, key=f"eh_{idx}", label_visibility="collapsed")
+            sub_c1, sub_c2 = st.columns([2, 1])
+            with sub_c1: e_hcol = st.text_input("C", value=h_col, key=f"ec_{idx}", label_visibility="collapsed").upper()
+            with sub_c2:
+                if st.button("🗑️", key=f"del_{idx}"):
+                    del shipper_info["excel_headers"][h_name]
+                    st.rerun()
+            updated_excel_headers[e_hname] = e_hcol
+            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         shipper_info["excel_headers"] = updated_excel_headers
 
         # 4. Save Button
