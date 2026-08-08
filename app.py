@@ -21,7 +21,7 @@ if "admin_authenticated" not in st.session_state:
 def check_app_password():
     def app_pass_entered():
         # 🔑 यहाँ सामान्य यूजर/ऑपरेटर का पासवर्ड सेट करें
-        if st.session_state["app_pass_input"] == "ck_user_2026":
+        if st.session_state["app_pass_input"] == "CK":
             st.session_state.app_authenticated = True
             del st.session_state["app_pass_input"]
         else:
@@ -53,7 +53,7 @@ def check_admin_password():
         
         def admin_pass_entered():
             # 🔑 यहाँ सुरक्षित एडमिन पासवर्ड सेट करें
-            if st.session_state["admin_pass_input"] == "ck_admin_2026":
+            if st.session_state["admin_pass_input"] == "CK2026":
                 st.session_state.admin_authenticated = True
                 del st.session_state["admin_pass_input"]
                 st.success("🎉 एडमिन एक्सेस मिल गया है!")
