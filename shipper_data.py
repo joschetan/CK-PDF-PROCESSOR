@@ -147,12 +147,12 @@ def render_shipper_data():
         with col_gs1: shipper_info["target_sheet_link"] = st.text_input("Sheet Link / ID:", value=shipper_info.get("target_sheet_link", ""))
         with col_gs2: shipper_info["target_tab_name"] = st.text_input("Tab Name:", value=shipper_info.get("target_tab_name", "Sheet1"))
 
-        # 3. Excel Download Header Configuration (Pure HTML Flex Scrollable Table)
+        # 3. Excel Download Header Configuration (True Excel-like Single Horizontal Scroll Layout)
         st.write("---")
         c_eh_head, c_eh_btn = st.columns([7, 3])
         with c_eh_head:
             st.subheader("📊 Excel Download Header Configuration")
-            st.caption("एक्सेल जैसा लेआउट: फिक्स चौड़ाई, साफ़ हेडिंग्स और नीचे सिंगल हॉरिजॉन्टल स्क्रॉल बार:")
+            st.caption("एक्सेल की तरह सिंगल हॉरिजॉन्टल स्क्रॉल बार (नीचे स्क्रॉल करें और सभी हेडर्स आसानी से पढ़ें):")
         with c_eh_btn:
             if st.button("➕ Add Header", use_container_width=True):
                 add_excel_header_dialog(selected_shipper)
@@ -163,90 +163,72 @@ def render_shipper_data():
         updated_excel_headers = {}
         header_items = list(shipper_info["excel_headers"].items())
         
-        # 🚀 परफेक्‍ट CSS: Streamlit कॉलम के बखेड़े को खत्म करके शुद्ध HTML Flexbox का उपयोग
+        # 🚀 शुद्ध HTML/CSS Flexbox आधारित सिंगल स्क्रॉल लेआउट (बिना किसी Streamlit कॉलम झंझट के)
         st.markdown("""
         <style>
-        .excel-table-scroll-wrapper {
+        .excel-master-scroll-container {
             display: flex;
             flex-direction: row;
             overflow-x: auto;
             gap: 15px;
-            padding: 15px 5px 25px 5px;
+            padding: 15px 10px 25px 10px;
             width: 100%;
             background-color: #f8f9fa;
             border-radius: 10px;
             border: 1px solid #ced4da;
+            white-space: nowrap;
         }
-        .excel-table-scroll-wrapper::-webkit-scrollbar {
+        /* नीचे केवल एक साफ़ और सुंदर मास्टर स्क्रॉल बार */
+        .excel-master-scroll-container::-webkit-scrollbar {
             height: 12px;
         }
-        .excel-table-scroll-wrapper::-webkit-scrollbar-thumb {
+        .excel-master-scroll-container::-webkit-scrollbar-thumb {
             background: #adb5bd;
             border-radius: 6px;
         }
-        .excel-table-scroll-wrapper::-webkit-scrollbar-track {
+        .excel-master-scroll-container::-webkit-scrollbar-track {
             background: #e9ecef;
             border-radius: 6px;
         }
-        .excel-header-card {
-            flex: 0 0 175px;
-            min-width: 175px;
-            max-width: 175px;
+        .excel-column-box {
+            flex: 0 0 170px;
+            width: 170px;
+            min-width: 170px;
             background: #ffffff;
             border: 1px solid #dee2e6;
             border-radius: 8px;
             padding: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            display: inline-block;
+            vertical-align: top;
+            white-space: normal;
         }
         </style>
         """, unsafe_allow_html=True)
-
-        # हम Streamlit के फॉर्म या इनपुट को बिना st.columns के सीधे जनरेट करेंगे ताकि पिचकें नहीं
-        # चूंकि st.text_input को यूनिक की चाहिए, हम HTML फॉर्म के अंदर Streamlit widgets को लूप करेंगे
         
-        # इसके लिए आउटर डिव शुरू
-        st.markdown('<div class="excel-table-scroll-wrapper">', unsafe_allow_html=True)
+        # मास्टर स्क्रॉल कंटेनर शुरू
+        st.markdown('<div class="excel-master-scroll-container">', unsafe_allow_html=True)
         
-        # HTML कंटेनर के भीतर Streamlit कॉम्पोनेंट्स को सही से दिखाने के लिए हम एक छोटी सी ट्रिक का उपयोग करेंगे
-        # चूंकि HTML के अंदर सीधे Streamlit विजेट्स रेंडर नहीं होते, हम हर कार्ड को एक छोटे कॉलम ब्लॉक में रखेंगे 
-        # और CSS से उनकी चौड़ाई एकदम सख्त फिक्स कर देंगे।
-        
-        if header_items:
-            # यहाँ हम कॉलम की संख्या के बराबर कॉलम बनाएंगे, लेकिन CSS उन्हें फैलने नहीं देगी बल्कि स्क्रॉल लाएगी
-            cols = st.columns(len(header_items))
-            for idx, (h_name, h_col) in enumerate(header_items):
-                with cols[idx]:
-                    # हर कार्ड को फिक्स विड्थ देने के लिए इनलाइन स्टाइल और क्लास
-                    st.markdown('<div style="width: 175px; min-width: 175px; background: #ffffff; padding: 10px; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">', unsafe_allow_html=True)
+        for idx, (h_name, h_col) in enumerate(header_items):
+            # हर कॉलम बॉक्स को एक अलग डिव में रेंडर करें
+            st.markdown(f'<div class="excel-column-box">', unsafe_allow_html=True)
+            
+            # हेडर नाम इनपुट
+            e_hname = st.text_input("Header Name", value=h_name, key=f"pure_html_h_{idx}", label_visibility="collapsed")
+            
+            # कॉलम लैटर और डिलीट बटन के लिए स्टेबल लेआउट
+            col_a, col_b = st.columns([3, 1])
+            with col_a:
+                e_hcol = st.text_input("Col", value=h_col, key=f"pure_html_c_{idx}", label_visibility="collapsed").upper()
+            with col_b:
+                if st.button("🗑️", key=f"pure_html_del_{idx}"):
+                    del shipper_info["excel_headers"][h_name]
+                    st.rerun()
                     
-                    e_hname = st.text_input("H", value=h_name, key=f"perfect_eh_{idx}", label_visibility="collapsed")
-                    
-                    sc1, sc2 = st.columns([2.5, 1])
-                    with sc1:
-                        e_hcol = st.text_input("C", value=h_col, key=f"perfect_ec_{idx}", label_visibility="collapsed").upper()
-                    with sc2:
-                        if st.button("🗑️", key=f"perfect_del_{idx}"):
-                            del shipper_info["excel_headers"][h_name]
-                            st.rerun()
-                            
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    updated_excel_headers[e_hname] = e_hcol
-                    
+            st.markdown('</div>', unsafe_allow_html=True)
+            updated_excel_headers[e_hname] = e_hcol
+            
         st.markdown('</div>', unsafe_allow_html=True)
-        
-        # CSS को मजबूर करने के लिए कि वह स्ट्रीमलिट के कॉलम रैपर को स्ट्रेच न होने दे
-        st.markdown("""
-        <style>
-        div[data-testid="column"] {
-            width: 175px !important;
-            flex: 0 0 175px !important;
-            min-width: 175px !important;
-            max-width: 175px !important;
-            display: inline-block !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
         shipper_info["excel_headers"] = updated_excel_headers
 
         # 4. Save Button
