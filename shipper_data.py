@@ -9,17 +9,6 @@ from github_sync import fetch_rules_from_github, push_rules_to_github
 def ensure_default_shipper():
     if "shipper_database" not in st.session_state:
         st.session_state["shipper_database"] = {}
-        
-    s_name = "WELSPUN GLOBAL BRANDS LIMITED"
-    if s_name not in st.session_state["shipper_database"]:
-        st.session_state["shipper_database"][s_name] = {
-            "mapping_rules": {},
-            "item_table_rules": {},
-            "item_table_rule_name": "parser_sample",
-            "target_sheet_link": "",
-            "target_tab_name": "Sheet1",
-            "igst_config": {"lut_keywords": "", "paid_keywords": ""}
-        }
 
 @st.cache_data(show_spinner=False)
 def fetch_cached_github_data():
@@ -45,7 +34,7 @@ def fetch_data_from_github(show_toast=False):
                 st.session_state["shipper_database"][s_name] = {
                     "mapping_rules": {},
                     "item_table_rules": {},
-                    "item_table_rule_name": "parser_sample",
+                    "item_table_rule_name": "",
                     "target_sheet_link": "",
                     "target_tab_name": "Sheet1",
                     "igst_config": {"lut_keywords": "", "paid_keywords": ""}
@@ -56,7 +45,7 @@ def fetch_data_from_github(show_toast=False):
             if isinstance(s_data, dict):
                 shipper_info["mapping_rules"] = s_data.get("mapping_rules", {})
                 shipper_info["item_table_rules"] = s_data.get("item_table_rules", {})
-                shipper_info["item_table_rule_name"] = s_data.get("item_table_rule_name", "parser_sample")
+                shipper_info["item_table_rule_name"] = s_data.get("item_table_rule_name", "")
                 shipper_info["target_sheet_link"] = s_data.get("target_sheet_link", "")
                 shipper_info["target_tab_name"] = s_data.get("target_tab_name", "Sheet1")
                 shipper_info["igst_config"] = s_data.get("igst_config", {"lut_keywords": "", "paid_keywords": ""})
@@ -140,7 +129,7 @@ def render_shipper_data():
                     st.session_state["shipper_database"][s_clean] = {
                         "mapping_rules": {},
                         "item_table_rules": {},
-                        "item_table_rule_name": "parser_sample",
+                        "item_table_rule_name": "",
                         "target_sheet_link": "",
                         "target_tab_name": "Sheet1",
                         "igst_config": {"lut_keywords": "", "paid_keywords": ""}
@@ -153,7 +142,6 @@ def render_shipper_data():
     shippers_list = list(st.session_state["shipper_database"].keys())
     
     if shippers_list:
-        # डिफ़ॉल्ट रूप से खाली / None ताकि कोई शिपर पहले से सेलेक्टेड न रहे
         selected_shipper = st.selectbox(
             "कॉन्फ़िगर करने के लिए शिपर चुनें:", 
             options=["-- कृपया शिपर चुनें या सर्च करें --"] + shippers_list, 
@@ -165,23 +153,26 @@ def render_shipper_data():
             st.write(f"### ⚙️ प्रोफाइल सेटअप और रूल्स: **{selected_shipper}**")
             shipper_info = st.session_state["shipper_database"][selected_shipper]
             
-            # 1. डायनामिक पार्सर सिलेक्शन ड्रॉपडाउन
-            available_parsers = ["parser_sample"]
-            current_parser = shipper_info.get("item_table_rule_name", "parser_sample")
-            if current_parser not in available_parsers:
-                available_parsers.append(current_parser)
-                
+            # पार्सर सिलेक्शन (कोई भी डिफ़ॉल्ट नहीं, यूजर खुद चुनेगा)
+            available_parsers = ["parser_sample", "parser_bkt_register"]
+            current_parser = shipper_info.get("item_table_rule_name", "")
+            
             p_idx = available_parsers.index(current_parser) if current_parser in available_parsers else 0
             
             updated_parser_choice = st.selectbox(
                 "📌 इस शिपर के लिए एक्टिव पार्सर रूल (Parser File) चुनें:", 
-                available_parsers, 
-                index=p_idx, 
+                options=["-- पार्सर चुनें --"] + available_parsers, 
+                index=available_parsers.index(current_parser) + 1 if current_parser in available_parsers else 0,
                 key=f"sel_parser_{selected_shipper}"
             )
-            shipper_info["item_table_rule_name"] = updated_parser_choice
+            
+            if updated_parser_choice != "-- पार्सर चुनें --":
+                shipper_info["item_table_rule_name"] = updated_parser_choice
+            else:
+                shipper_info["item_table_rule_name"] = ""
+                st.warning("⚠️ कृपया इस शिपर के लिए एक वैध पार्सर रूल चुनें!")
 
-            # 2. Target Google Sheet Link और Sheet/Tab Name इनपुट फील्ड्स
+            # Target Google Sheet Link और Sheet/Tab Name इनपुट फील्ड्स
             st.markdown("#### ☁️ Target Google Sheet Destination Config")
             col_gs1, col_gs2 = st.columns(2)
             with col_gs1:
@@ -302,14 +293,14 @@ def render_shipper_data():
             shipper_info["item_table_rules"] = updated_item_rules
             st.write("---")
             
-            # 🚀 GitHub पर रूल्स सेव करने का बटन (Google Sheet लिंक और टैब नेम सहित)
+            # 🚀 GitHub पर रूल्स सेव करने का बटन
             if st.button("💾 Save Rules to GitHub JSON", type="primary", use_container_width=True, key="btn_save_rules_github"):
                 shippers_payload = {}
                 for s_name, s_data in st.session_state["shipper_database"].items():
                     shippers_payload[s_name] = {
                         "mapping_rules": s_data.get("mapping_rules", {}),
                         "item_table_rules": s_data.get("item_table_rules", {}),
-                        "item_table_rule_name": s_data.get("item_table_rule_name", "parser_sample"),
+                        "item_table_rule_name": s_data.get("item_table_rule_name", ""),
                         "target_sheet_link": s_data.get("target_sheet_link", ""),
                         "target_tab_name": s_data.get("target_tab_name", "Sheet1"),
                         "igst_config": s_data.get("igst_config", {})
@@ -323,4 +314,4 @@ def render_shipper_data():
                         st.success("🎉 सफलता! आपके सारे रूल्स GitHub पर सुरक्षित सेव हो गए हैं!")
                         st.balloons()
                     else:
-                        st.error("❌ GitHub पर रूल्स सेव करते समय एरर आया! कृपया GitHub Token / API चेक करें।")
+                        st.error("❌ GitHub पर रूल्स सेव करते समय एरर आया!")
