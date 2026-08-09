@@ -13,6 +13,21 @@ def render_processor():
     fetch_data_from_github()
     ensure_default_shipper()
     
+    # 🌟 प्रोफेशनल लुक के लिए साइडबार या टॉप पर क्रिएटर प्रोफाइल जोड़ना
+    with st.sidebar:
+        st.markdown("---")
+        try:
+            # यहाँ अपनी फोटो का नाम लिखें (जैसे 'chetan.jpg' या 'photo.png')
+            st.image("ck_photo.jpg", width=100, caption="Chetan Joshi")
+        except Exception:
+            # अगर फोटो फाइल न मिले तो यह डिफ़ॉल्ट आइकॉन दिखाएगा ताकि ऐप क्रैश न हो
+            st.markdown("👤")
+            
+        st.markdown("### **System Developer**")
+        st.markdown("**Chetan Joshi**")
+        st.markdown("📞 +91 98253 06898")
+        st.markdown("---")
+    
     st.header("📄 CK PDF PROCESSOR")
     st.caption("एक साथ कई स्टैंडर्ड PDF इनवॉइस अपलोड करें, प्रोसेस करें और एक्सेल डाउनलोड करें।")
     
@@ -28,6 +43,19 @@ def render_processor():
     
     if selected_shipper == "-- कृपया शिपर चुनें या सर्च करें --":
         st.info("👆 कृपया प्रोसेसिंग शुरू करने के लिए ऊपर दिए गए ड्रॉपडाउन से शिपर चुनें।")
+        
+        # 🌐 सॉफ्टवेयर के नीचे ग्लोबल प्रोफेशनल फुटर (Powered / Managed by)
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div style='text-align: center; color: #6c757d; font-size: 14px;'>
+                <hr style='border: 0.5px solid #e9ecef;'>
+                <b>CK PDF PROCESSOR</b> &bull; Enterprise Edition<br>
+                Created & Managed by <b>Chetan Joshi</b> | Contact: <b>+91 98253 06898</b>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
         return
         
     if selected_shipper:
@@ -208,3 +236,16 @@ def render_processor():
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
                 )
+                
+    # 🌐 स्क्रीन के बिल्कुल नीचे हमेशा दिखने वाला प्रोफेशनल फुटर
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style='text-align: center; color: #6c757d; font-size: 14px;'>
+            <hr style='border: 0.5px solid #e9ecef;'>
+            <b>CK PDF PROCESSOR</b> &bull; Enterprise Edition<br>
+            Created & Managed by <b>Chetan Joshi</b> | Contact: <b>+91 98253 06898</b>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
