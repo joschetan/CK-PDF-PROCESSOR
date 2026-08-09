@@ -1,0 +1,24 @@
+{
+    "WELSPUN GLOBAL BRANDS LIMITED": {
+        "mapping_rules": {},
+        "item_table_rules": {},
+        "item_table_rule_name": "parser_bkt_register",
+        "target_sheet_link": "",
+        "target_tab_name": "Sheet1",
+        "igst_config": {
+            "lut_keywords": "",
+            "paid_keywords": ""
+        }
+    },
+    "BKT MUNDRA JOB REGISTER": {
+        "mapping_rules": {},
+        "item_table_rules": {},
+        "item_table_rule_name": "parser_sample",
+        "target_sheet_link": "",
+        "target_tab_name": "Sheet1",
+        "igst_config": {
+            "lut_keywords": "",
+            "paid_keywords": ""
+        }
+    }
+}
