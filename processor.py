@@ -4,7 +4,8 @@ import pdfplumber
 import re
 from io import BytesIO
 
-from parser_sample import extract_welspun_items, map_items_to_excel_dynamic
+from parser_sample import extract_welspun_items, map_items_to_excel_dynamic as map_sample
+from parser_bkt_register import extract_bkt_items, map_items_to_excel_dynamic as map_bkt
 from shipper_data import fetch_data_from_github, ensure_default_shipper
 from pdf_engine import apply_rule_filter, extract_header_value
 
@@ -17,7 +18,7 @@ def render_processor():
     
     shippers_list = list(st.session_state["shipper_database"].keys())
     
-    # डिफ़ॉल्ट रूप से खाली / None ताकि यूजर खुद सर्च या ड्रॉपडाउन से चुने
+    # डिफ़ॉल्ट रूप से खाली / None ताकि कोई शिपर पहले से सेलेक्टेड न रहे
     selected_shipper = st.selectbox(
         "किस शिपर का इनवॉइस प्रोसेस करना है?", 
         options=["-- कृपया शिपर चुनें या सर्च करें --"] + shippers_list,
@@ -31,7 +32,12 @@ def render_processor():
         
     if selected_shipper:
         shipper_info = st.session_state["shipper_database"][selected_shipper]
+        assigned_parser = shipper_info.get("item_table_rule_name", "")
         
+        if not assigned_parser:
+            st.warning("⚠️ इस शिपर के लिए कोई पार्सर रूल सेट नहीं है! कृपया एडमिन ज़ोन में जाकर पार्सर चुनें और सेव करें।")
+            return
+            
         st.markdown("---")
         
         # 📂 Custom Excel Format / Template Upload (Optional)
@@ -62,7 +68,6 @@ def render_processor():
                 with st.spinner(f"कुल {len(uploaded_pdfs)} PDF फाइलें प्रोसेस हो रही हैं... कृपया प्रतीक्षा करें..."):
                     rules = shipper_info.get("mapping_rules", {})
                     item_table_rules = shipper_info.get("item_table_rules", {})
-                    assigned_parser = "parser_sample"
                     
                     igst_cfg = shipper_info.get("igst_config", {})
                     lut_kws = igst_cfg.get("lut_keywords", "")
@@ -70,12 +75,10 @@ def render_processor():
                     
                     # --- EXCEL WORKBOOK SETUP ---
                     if excel_template:
-                        # ✅ केस 1: यूजर का अपलोड किया हुआ टेम्पलेट इस्तेमाल होगा
                         wb = openpyxl.load_workbook(excel_template)
                         ws = wb["INV"] if "INV" in wb.sheetnames else wb.active
                         excel_write_row = ws.max_row + 1
                     else:
-                        # ✅ केस 2: डिफ़ॉल्ट नई फाइल
                         wb = openpyxl.Workbook()
                         ws = wb["INV"] if "INV" in wb.sheetnames else wb.active
                         excel_write_row = 2
@@ -155,20 +158,36 @@ def render_processor():
                             i_col = i_info.get("col", "K")
                             resolved_item_rules[i_name] = {"col": i_col, "type": i_type, "rule": i_rule}
 
-                        parsed_items = extract_welspun_items(pdf_lines, pdf_text=pdf_text)
-                        
-                        ws, overall_item_sr, excel_write_row = map_items_to_excel_dynamic(
-                            ws, parsed_items, resolved_item_rules,
-                            inv_sr_no=inv_idx+1, 
-                            start_overall_sr=overall_item_sr, 
-                            start_excel_row=excel_write_row, 
-                            default_invoice_no=current_inv_number, 
-                            default_invoice_date=current_inv_date,
-                            pdf_text=pdf_text,
-                            lut_kws=lut_kws,
-                            paid_kws=paid_kws,
-                            parser_rule=assigned_parser
-                        )
+                        # ⚡ शिपर द्वारा चुने गए पार्सर के आधार पर आइटम एक्सट्रेक्ट करें
+                        if assigned_parser == "parser_bkt_register":
+                            parsed_items = extract_bkt_items(pdf_lines, pdf_text=pdf_text)
+                            ws, overall_item_sr, excel_write_row = map_bkt(
+                                ws, parsed_items, resolved_item_rules,
+                                inv_sr_no=inv_idx+1, 
+                                start_overall_sr=overall_item_sr, 
+                                start_excel_row=excel_write_row, 
+                                default_invoice_no=current_inv_number, 
+                                default_invoice_date=current_inv_date,
+                                pdf_text=pdf_text,
+                                lut_kws=lut_kws,
+                                paid_kws=paid_kws,
+                                parser_rule=assigned_parser
+                            )
+                        else:
+                            # डिफ़ॉल्ट या sample पार्सर
+                            parsed_items = extract_welspun_items(pdf_lines, pdf_text=pdf_text)
+                            ws, overall_item_sr, excel_write_row = map_sample(
+                                ws, parsed_items, resolved_item_rules,
+                                inv_sr_no=inv_idx+1, 
+                                start_overall_sr=overall_item_sr, 
+                                start_excel_row=excel_write_row, 
+                                default_invoice_no=current_inv_number, 
+                                default_invoice_date=current_inv_date,
+                                pdf_text=pdf_text,
+                                lut_kws=lut_kws,
+                                paid_kws=paid_kws,
+                                parser_rule=assigned_parser
+                            )
 
                     output = BytesIO()
                     wb.save(output)
