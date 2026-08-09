@@ -75,41 +75,6 @@ def show_field_test_dialog(field_name, rule_data, result_val):
         st.success("🎉 **SUCCESS! Extracted Value:**")
         st.code(result_val, language="text")
 
-@st.dialog("➕ Add New Custom Header Field")
-def add_custom_header_field_dialog(selected_shipper):
-    st.write("यहाँ नया हेडर फ़ील्ड जोड़ें:")
-    # 🛠️ यहाँ key जोड़ने से वैल्यू रिफ्रेश होने पर उड़ेगी नहीं
-    new_field = st.text_input("Field Name (उदा: Invoice No, GST Inv No):", key="dialog_new_header_field_input")
-    
-    if st.button("Confirm & Add Field", type="primary"):
-        if not new_field or not new_field.strip():
-            st.error("फ़ील्ड नाम खाली नहीं हो सकता!")
-        else:
-            rules = st.session_state["shipper_database"][selected_shipper].setdefault("mapping_rules", {})
-            rules[new_field.strip()] = {
-                "keyword": "", "position": "Right (आगे)", "cell": "",
-                "match_mode": "Exact Word", "stop_kw": "", "filter": "None", "fallback": ""
-            }
-            st.success(f"🎉 फ़ील्ड '{new_field}' जुड़ गया!")
-            st.rerun()
-
-@st.dialog("➕ Add Item Column Rule")
-def add_item_col_dialog(selected_shipper):
-    st.write("यहाँ आइटम टेबल के लिए नया कॉलम हेडिंग और एक्सेल कॉलम जोड़ें:")
-    c_name = st.text_input("Heading Name (उदा: Net Weight, Boxes, Size):", key="dialog_item_heading_input")
-    c_col = st.text_input("Excel Column Letter (उदा: L, M, N, Z):", key="dialog_item_col_input").upper()
-    c_type = st.selectbox("Rule Type:", ["PDF Row Item", "Constant Text", "Smart Detection"], key="dialog_item_type_select")
-    c_rule = st.text_input("Rule Detail / Value (उदा: B19, SET, PCS):", key="dialog_item_rule_input")
-    
-    if st.button("Confirm & Add Item Column", type="primary"):
-        if not c_name or not c_col:
-            st.error("Heading Name और Column Letter अनिवार्य हैं!")
-        else:
-            item_rules = st.session_state["shipper_database"][selected_shipper].setdefault("item_table_rules", {})
-            item_rules[c_name] = {"col": c_col, "type": c_type, "rule": c_rule}
-            st.success(f"🎉 कॉलम '{c_name}' जुड़ गया!")
-            st.rerun()
-
 def render_shipper_data():
     if "github_data_loaded" not in st.session_state:
         fetch_data_from_github(show_toast=False)
@@ -223,9 +188,28 @@ def render_shipper_data():
                         fetch_data_from_github(show_toast=True)
                     st.rerun()
 
-            if st.button("➕ Add Header Field", key="btn_add_h_field"):
-                add_custom_header_field_dialog(selected_shipper)
-            
+            # 🛠️ पॉप-अप डायलॉग की जगह सीधा इनलाइन फॉर्म (ताकि डेटा तुरंत जुड़े)
+            with st.form(key=f"add_header_form_{selected_shipper}", clear_on_submit=True):
+                st.markdown("##### ➕ Add New Custom Header Field")
+                new_field_input = st.text_input("Field Name (उदा: Invoice No, GST Inv No):")
+                submit_header = st.form_submit_button("Confirm & Add Field", type="primary")
+                
+                if submit_header:
+                    if not new_field_input or not new_field_input.strip():
+                        st.error("फ़ील्ड नाम खाली नहीं हो सकता!")
+                    else:
+                        rules = shipper_info.setdefault("mapping_rules", {})
+                        f_clean = new_field_input.strip()
+                        if f_clean in rules:
+                            st.warning(f"⚠️ फ़ील्ड '{f_clean}' पहले से मौजूद है!")
+                        else:
+                            rules[f_clean] = {
+                                "keyword": "", "position": "Right (आगे)", "cell": "",
+                                "match_mode": "Exact Word", "stop_kw": "", "filter": "None", "fallback": ""
+                            }
+                            st.success(f"🎉 फ़ील्ड '{f_clean}' सफलतापूर्वक जुड़ गया!")
+                            st.rerun()
+
             current_rules = shipper_info.get("mapping_rules", {})
             updated_rules = {}
             
@@ -237,17 +221,17 @@ def render_shipper_data():
                 s_val = current_rules[field]
                 c1, c2, c3, c4, c5, c10, c11 = st.columns([2.0, 2.5, 1.5, 1.5, 1.5, 0.6, 0.9])
                 
-                with c1: edited_name = st.text_input(f"f_{field}", value=field, label_visibility="collapsed")
-                with c2: ky = st.text_input(f"k_{field}", value=s_val.get("keyword", ""), label_visibility="collapsed")
-                with c3: pos = st.selectbox(f"p_{field}", pos_options, index=0, label_visibility="collapsed")
-                with c4: m_mode = st.selectbox(f"mm_{field}", mode_options, index=0, label_visibility="collapsed")
-                with c5: final_flt = st.selectbox(f"flt_{field}", filter_options, index=0, label_visibility="collapsed")
+                with c1: edited_name = st.text_input(f"f_{field}", value=field, label_visibility="collapsed", key=f"f_name_{selected_shipper}_{field}")
+                with c2: ky = st.text_input(f"k_{field}", value=s_val.get("keyword", ""), label_visibility="collapsed", key=f"f_kw_{selected_shipper}_{field}")
+                with c3: pos = st.selectbox(f"p_{field}", pos_options, index=pos_options.index(s_val.get("position", pos_options[0])) if s_val.get("position") in pos_options else 0, label_visibility="collapsed", key=f"f_pos_{selected_shipper}_{field}")
+                with c4: m_mode = st.selectbox(f"mm_{field}", mode_options, index=mode_options.index(s_val.get("match_mode", mode_options[0])) if s_val.get("match_mode") in mode_options else 0, label_visibility="collapsed", key=f"f_mm_{selected_shipper}_{field}")
+                with c5: final_flt = st.selectbox(f"flt_{field}", filter_options, index=filter_options.index(s_val.get("filter", filter_options[0])) if s_val.get("filter") in filter_options else 0, label_visibility="collapsed", key=f"f_flt_{selected_shipper}_{field}")
                 with c10:
-                    if st.button("🗑️", key=f"del_h_{field}"):
-                        del st.session_state["shipper_database"][selected_shipper]["mapping_rules"][field]
+                    if st.button("🗑️", key=f"del_h_{selected_shipper}_{field}"):
+                        del shipper_info["mapping_rules"][field]
                         st.rerun()
                 with c11:
-                    if st.button("⚡ Test", key=f"test_btn_{field}"):
+                    if st.button("⚡ Test", key=f"test_btn_{selected_shipper}_{field}"):
                         curr_pdf_lines = st.session_state.get("cached_pdf_lines", [])
                         curr_pdf_text = st.session_state.get("cached_pdf_text", "")
                         if not curr_pdf_lines:
@@ -262,12 +246,28 @@ def render_shipper_data():
             shipper_info["mapping_rules"] = updated_rules
 
             st.write("---")
-            c_head, c_add_btn = st.columns([7, 3])
-            with c_head:
-                st.subheader("📦 Dynamic Item Table Column Builder")
-            with c_add_btn:
-                if st.button("➕ Add Item Column", use_container_width=True, key="btn_add_item_col_main"):
-                    add_item_col_dialog(selected_shipper)
+            
+            # 🛠️ Item Table Column के लिए भी इनलाइन फॉर्म
+            with st.form(key=f"add_item_form_{selected_shipper}", clear_on_submit=True):
+                st.markdown("##### ➕ Add Item Column Rule")
+                c_name_input = st.text_input("Heading Name (उदा: Net Weight, Boxes, Size):")
+                c_col_input = st.text_input("Excel Column Letter (उदा: L, M, N, Z):").upper()
+                c_type_input = st.selectbox("Rule Type:", ["PDF Row Item", "Constant Text", "Smart Detection"])
+                c_rule_input = st.text_input("Rule Detail / Value (उदा: B19, SET, PCS):")
+                submit_item = st.form_submit_button("Confirm & Add Item Column", type="primary")
+                
+                if submit_item:
+                    if not c_name_input or not c_col_input:
+                        st.error("Heading Name और Column Letter अनिवार्य हैं!")
+                    else:
+                        item_rules = shipper_info.setdefault("item_table_rules", {})
+                        i_clean = c_name_input.strip()
+                        if i_clean in item_rules:
+                            st.warning(f"⚠️ कॉलम '{i_clean}' पहले से मौजूद है!")
+                        else:
+                            item_rules[i_clean] = {"col": c_col_input.strip(), "type": c_type_input, "rule": c_rule_input.strip()}
+                            st.success(f"🎉 कॉलम '{i_clean}' जुड़ गया!")
+                            st.rerun()
             
             item_rules = shipper_info.get("item_table_rules", {})
             updated_item_rules = {}
@@ -276,12 +276,12 @@ def render_shipper_data():
                 ir = item_rules[item_field]
                 ic1, ic2, ic3, ic4, ic6 = st.columns([3.0, 1.5, 3.0, 3.0, 0.8])
                 
-                with ic1: e_ifield = st.text_input(f"if_{item_field}", value=item_field, label_visibility="collapsed")
-                with ic2: e_icol = st.text_input(f"ic_{item_field}", value=ir.get("col", "K"), label_visibility="collapsed").upper()
-                with ic3: e_itype = st.selectbox(f"it_{item_field}", ["PDF Row Item", "Constant Text", "Smart Detection"], index=0, label_visibility="collapsed")
-                with ic4: e_irule = st.text_input(f"ir_{item_field}", value=ir.get("rule", ""), label_visibility="collapsed")
+                with ic1: e_ifield = st.text_input(f"if_{item_field}", value=item_field, label_visibility="collapsed", key=f"i_name_{selected_shipper}_{item_field}")
+                with ic2: e_icol = st.text_input(f"ic_{item_field}", value=ir.get("col", "K"), label_visibility="collapsed", key=f"i_col_{selected_shipper}_{item_field}").upper()
+                with ic3: e_itype = st.selectbox(f"it_{item_field}", ["PDF Row Item", "Constant Text", "Smart Detection"], index=["PDF Row Item", "Constant Text", "Smart Detection"].index(ir.get("type", "PDF Row Item")) if ir.get("type") in ["PDF Row Item", "Constant Text", "Smart Detection"] else 0, label_visibility="collapsed", key=f"i_type_{selected_shipper}_{item_field}")
+                with ic4: e_irule = st.text_input(f"ir_{item_field}", value=ir.get("rule", ""), label_visibility="collapsed", key=f"i_rule_{selected_shipper}_{item_field}")
                 with ic6:
-                    if st.button("🗑️", key=f"idel_{item_field}"):
+                    if st.button("🗑️", key=f"idel_{selected_shipper}_{item_field}"):
                         del item_rules[item_field]
                         st.rerun()
                         
