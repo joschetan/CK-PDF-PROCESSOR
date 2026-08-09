@@ -36,8 +36,7 @@ def fetch_data_from_github(show_toast=False):
                     "item_table_rules": {},
                     "item_table_rule_name": "",
                     "target_sheet_link": "",
-                    "target_tab_name": "Sheet1",
-                    "igst_config": {"lut_keywords": "", "paid_keywords": ""}
+                    "target_tab_name": "Sheet1"
                 }
             
             shipper_info = st.session_state["shipper_database"][s_name]
@@ -48,7 +47,6 @@ def fetch_data_from_github(show_toast=False):
                 shipper_info["item_table_rule_name"] = s_data.get("item_table_rule_name", "")
                 shipper_info["target_sheet_link"] = s_data.get("target_sheet_link", "")
                 shipper_info["target_tab_name"] = s_data.get("target_tab_name", "Sheet1")
-                shipper_info["igst_config"] = s_data.get("igst_config", {"lut_keywords": "", "paid_keywords": ""})
 
         if show_toast: st.toast("✅ GitHub से सभी रूल्स लोड हो गए!")
     except Exception as e:
@@ -75,7 +73,6 @@ def show_field_test_dialog(field_name, rule_data, result_val):
         st.success("🎉 **SUCCESS! Extracted Value:**")
         st.code(result_val, language="text")
 
-# 🛠️ पुराना पॉप-अप डायलॉग (Popup Dialog) वापस बहाल कर दिया गया है
 @st.dialog("➕ Add New Custom Header Field")
 def add_custom_header_field_dialog(selected_shipper):
     st.write("यहाँ नया हेडर फ़ील्ड जोड़ें:")
@@ -114,7 +111,7 @@ def add_item_col_dialog(selected_shipper):
             if i_clean in item_rules:
                 st.warning(f"⚠️ कॉलम '{i_clean}' पहले से मौजूद है!")
             else:
-                item_rules[i_clean] = {"col": c_col.strip(), "type": c_type, "rule": c_rule_input.strip()}
+                item_rules[i_clean] = {"col": c_col.strip(), "type": c_type, "rule": c_rule.strip()}
                 st.success(f"🎉 कॉलम '{i_clean}' जुड़ गया!")
                 st.rerun()
 
@@ -140,8 +137,7 @@ def render_shipper_data():
                         "item_table_rules": {},
                         "item_table_rule_name": "",
                         "target_sheet_link": "",
-                        "target_tab_name": "Sheet1",
-                        "igst_config": {"lut_keywords": "", "paid_keywords": ""}
+                        "target_tab_name": "Sheet1"
                     }
                     st.success(f"🎉 नया शिपर '{s_clean}' सफलतापूर्वक जुड़ गया है!")
                     st.rerun()
@@ -306,8 +302,7 @@ def render_shipper_data():
                         "item_table_rules": s_data.get("item_table_rules", {}),
                         "item_table_rule_name": s_data.get("item_table_rule_name", ""),
                         "target_sheet_link": s_data.get("target_sheet_link", ""),
-                        "target_tab_name": s_data.get("target_tab_name", "Sheet1"),
-                        "igst_config": s_data.get("igst_config", {})
+                        "target_tab_name": s_data.get("target_tab_name", "Sheet1")
                     }
                 
                 with st.spinner("⏳ GitHub JSON पर रूल्स सेव हो रहे हैं..."):
