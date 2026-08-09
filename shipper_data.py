@@ -153,9 +153,15 @@ def render_shipper_data():
     shippers_list = list(st.session_state["shipper_database"].keys())
     
     if shippers_list:
-        selected_shipper = st.selectbox("कॉन्फ़िगर करने के लिए शिपर चुनें:", shippers_list, index=0)
+        # डिफ़ॉल्ट रूप से खाली / None ताकि कोई शिपर पहले से सेलेक्टेड न रहे
+        selected_shipper = st.selectbox(
+            "कॉन्फ़िगर करने के लिए शिपर चुनें:", 
+            options=["-- कृपया शिपर चुनें या सर्च करें --"] + shippers_list, 
+            index=0,
+            key="admin_shipper_select"
+        )
         
-        if selected_shipper:
+        if selected_shipper != "-- कृपया शिपर चुनें या सर्च करें --":
             st.write(f"### ⚙️ प्रोफाइल सेटअप और रूल्स: **{selected_shipper}**")
             shipper_info = st.session_state["shipper_database"][selected_shipper]
             
