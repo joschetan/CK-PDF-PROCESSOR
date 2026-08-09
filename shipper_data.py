@@ -73,18 +73,23 @@ def show_field_test_dialog(field_name, rule_data, result_val):
         st.success("🎉 **SUCCESS! Extracted Value:**")
         st.code(result_val, language="text")
 
-# 🛠️ 1. हेडर फील्ड जोड़ने के लिए ऑरिजिनल पॉप-अप डायलॉग (फिक्स्ड)
+# 🛠️ 1. हेडर फील्ड पॉप-अप (Debug Enabled)
 @st.dialog("➕ Add New Custom Header Field")
 def add_custom_header_field_dialog(selected_shipper):
-    st.write("यहाँ नया हेडर फ़ील्ड जोड़ें:")
+    st.write(f"वर्तमान शिपर: **{selected_shipper}**")
     new_field = st.text_input("Field Name (उदा: Invoice No, GST Inv No):", key="dialog_new_header_field_input")
     
     if st.button("Confirm & Add Field", type="primary"):
         if not new_field or not new_field.strip():
             st.error("फ़ील्ड नाम खाली नहीं हो सकता!")
         else:
+            if selected_shipper not in st.session_state["shipper_database"]:
+                st.error(f"❌ एरर: शिपर '{selected_shipper}' सेशन स्टेट में नहीं मिला!")
+                return
+                
             rules = st.session_state["shipper_database"][selected_shipper].setdefault("mapping_rules", {})
             f_clean = new_field.strip()
+            
             if f_clean in rules:
                 st.warning(f"⚠️ फ़ील्ड '{f_clean}' पहले से मौजूद है!")
             else:
@@ -92,13 +97,13 @@ def add_custom_header_field_dialog(selected_shipper):
                     "keyword": "", "position": "Right (आगे)", "cell": "",
                     "match_mode": "Exact Word", "stop_kw": "", "filter": "None", "fallback": ""
                 }
-                st.success(f"🎉 फ़ील्ड '{f_clean}' जुड़ गया!")
+                st.success(f"✅ DEBUG: फ़ील्ड '{f_clean}' सफलतापूर्वक जुड़ गया! अब रीफ्रेश हो रहा है...")
                 st.rerun()
 
-# 🛠️ 2. आइटम कॉलम जोड़ने के लिए ऑरिजिनल पॉप-अप डायलॉग (फिक्स्ड)
+# 🛠️ 2. आइटम कॉलम पॉप-अप (Debug Enabled)
 @st.dialog("➕ Add Item Column Rule")
 def add_item_col_dialog(selected_shipper):
-    st.write("यहाँ आइटम टेबल के लिए नया कॉलम हेडिंग और एक्सेल कॉलम जोड़ें:")
+    st.write(f"वर्तमान शिपर: **{selected_shipper}**")
     c_name = st.text_input("Heading Name (उदा: Net Weight, Boxes, Size):", key="dialog_item_heading_input")
     c_col = st.text_input("Excel Column Letter (उदा: L, M, N, Z):", key="dialog_item_col_input").upper()
     c_type = st.selectbox("Rule Type:", ["PDF Row Item", "Constant Text", "Smart Detection"], key="dialog_item_type_select")
@@ -108,13 +113,18 @@ def add_item_col_dialog(selected_shipper):
         if not c_name or not c_col:
             st.error("Heading Name और Column Letter अनिवार्य हैं!")
         else:
+            if selected_shipper not in st.session_state["shipper_database"]:
+                st.error(f"❌ एरर: शिपर '{selected_shipper}' सेशन स्टेट में नहीं मिला!")
+                return
+                
             item_rules = st.session_state["shipper_database"][selected_shipper].setdefault("item_table_rules", {})
             i_clean = c_name.strip()
+            
             if i_clean in item_rules:
                 st.warning(f"⚠️ कॉलम '{i_clean}' पहले से मौजूद है!")
             else:
                 item_rules[i_clean] = {"col": c_col.strip(), "type": c_type, "rule": c_rule.strip()}
-                st.success(f"🎉 कॉलम '{i_clean}' जुड़ गया!")
+                st.success(f"✅ DEBUG: कॉलम '{i_clean}' सफलतापूर्वक जुड़ गया! अब रीफ्रेश हो रहा है...")
                 st.rerun()
 
 def render_shipper_data():
@@ -316,3 +326,8 @@ def render_shipper_data():
                         st.balloons()
                     else:
                         st.error("❌ GitHub पर रूल्स सेव करते समय एरर आया!")
+
+            # 🔍 लाइव स्टेट देखने के लिए डीबग इंस्पेक्टर
+            with st.expander("🔍 Live Session State Inspector (Debug)", expanded=False):
+                st.write(st.session_state.get("shipper_database", {}))
+        ```
