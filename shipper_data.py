@@ -75,6 +75,49 @@ def show_field_test_dialog(field_name, rule_data, result_val):
         st.success("🎉 **SUCCESS! Extracted Value:**")
         st.code(result_val, language="text")
 
+# 🛠️ पुराना पॉप-अप डायलॉग (Popup Dialog) वापस बहाल कर दिया गया है
+@st.dialog("➕ Add New Custom Header Field")
+def add_custom_header_field_dialog(selected_shipper):
+    st.write("यहाँ नया हेडर फ़ील्ड जोड़ें:")
+    new_field = st.text_input("Field Name (उदा: Invoice No, GST Inv No):", key="dialog_new_header_field_input")
+    
+    if st.button("Confirm & Add Field", type="primary"):
+        if not new_field or not new_field.strip():
+            st.error("फ़ील्ड नाम खाली नहीं हो सकता!")
+        else:
+            rules = st.session_state["shipper_database"][selected_shipper].setdefault("mapping_rules", {})
+            f_clean = new_field.strip()
+            if f_clean in rules:
+                st.warning(f"⚠️ फ़ील्ड '{f_clean}' पहले से मौजूद है!")
+            else:
+                rules[f_clean] = {
+                    "keyword": "", "position": "Right (आगे)", "cell": "",
+                    "match_mode": "Exact Word", "stop_kw": "", "filter": "None", "fallback": ""
+                }
+                st.success(f"🎉 फ़ील्ड '{f_clean}' जुड़ गया!")
+                st.rerun()
+
+@st.dialog("➕ Add Item Column Rule")
+def add_item_col_dialog(selected_shipper):
+    st.write("यहाँ आइटम टेबल के लिए नया कॉलम हेडिंग और एक्सेल कॉलम जोड़ें:")
+    c_name = st.text_input("Heading Name (उदा: Net Weight, Boxes, Size):", key="dialog_item_heading_input")
+    c_col = st.text_input("Excel Column Letter (उदा: L, M, N, Z):", key="dialog_item_col_input").upper()
+    c_type = st.selectbox("Rule Type:", ["PDF Row Item", "Constant Text", "Smart Detection"], key="dialog_item_type_select")
+    c_rule = st.text_input("Rule Detail / Value (उदा: B19, SET, PCS):", key="dialog_item_rule_input")
+    
+    if st.button("Confirm & Add Item Column", type="primary"):
+        if not c_name or not c_col:
+            st.error("Heading Name और Column Letter अनिवार्य हैं!")
+        else:
+            item_rules = st.session_state["shipper_database"][selected_shipper].setdefault("item_table_rules", {})
+            i_clean = c_name.strip()
+            if i_clean in item_rules:
+                st.warning(f"⚠️ कॉलम '{i_clean}' पहले से मौजूद है!")
+            else:
+                item_rules[i_clean] = {"col": c_col.strip(), "type": c_type, "rule": c_rule_input.strip()}
+                st.success(f"🎉 कॉलम '{i_clean}' जुड़ गया!")
+                st.rerun()
+
 def render_shipper_data():
     if "github_data_loaded" not in st.session_state:
         fetch_data_from_github(show_toast=False)
@@ -164,7 +207,7 @@ def render_shipper_data():
             pdf_text = ""
             if test_pdf:
                 st.session_state["cached_pdf_bytes"] = test_pdf.getvalue()
-                with pdfplumber.open(Test_pdf := test_pdf) as pdf:
+                with pdfplumber.open(test_pdf) as pdf:
                     for page in pdf.pages:
                         t = page.extract_text()
                         if t:
@@ -188,30 +231,9 @@ def render_shipper_data():
                         fetch_data_from_github(show_toast=True)
                     st.rerun()
 
-            # 🛠️ बिना किसी फॉर्म के सीधा और सुरक्षित इनपुट और बटन (जो तुरंत डेटा जोड़ देगा)
-            st.markdown("##### ➕ Add New Custom Header Field")
-            col_add_h1, col_add_h2 = st.columns([4, 1])
-            with col_add_h1:
-                new_field_input = st.text_input("Field Name (उदा: Invoice No, GST Inv No):", key=f"new_h_input_{selected_shipper}", label_visibility="collapsed", placeholder="Field Name दर्ज करें...")
-            with col_add_h2:
-                add_h_btn = st.button("Add Field", type="primary", key=f"btn_add_h_action_{selected_shipper}")
+            if st.button("➕ Add Header Field", key="btn_add_h_field"):
+                add_custom_header_field_dialog(selected_shipper)
             
-            if add_h_btn:
-                if not new_field_input or not new_field_input.strip():
-                    st.error("फ़ील्ड नाम खाली नहीं हो सकता!")
-                else:
-                    rules = shipper_info.setdefault("mapping_rules", {})
-                    f_clean = new_field_input.strip()
-                    if f_clean in rules:
-                        st.warning(f"⚠️ फ़ील्ड '{f_clean}' पहले से मौजूद है!")
-                    else:
-                        rules[f_clean] = {
-                            "keyword": "", "position": "Right (आगे)", "cell": "",
-                            "match_mode": "Exact Word", "stop_kw": "", "filter": "None", "fallback": ""
-                        }
-                        st.success(f"🎉 फ़ील्ड '{f_clean}' सफलतापूर्वक जुड़ गया!")
-                        st.rerun()
-
             current_rules = shipper_info.get("mapping_rules", {})
             updated_rules = {}
             
@@ -248,36 +270,12 @@ def render_shipper_data():
             shipper_info["mapping_rules"] = updated_rules
 
             st.write("---")
-            
-            # 🛠️ Item Table Column के लिए भी सीधा इनलाइन फॉर्म-लेस तरीका
-            st.markdown("##### ➕ Add Item Column Rule")
-            ic_in1, ic_in2 = st.columns(2)
-            with ic_in1:
-                c_name_input = st.text_input("Heading Name (उदा: Net Weight, Boxes, Size):", key=f"new_item_name_{selected_shipper}")
-            with ic_in2:
-                c_col_input = st.text_input("Excel Column Letter (उदा: L, M, N, Z):", key=f"new_item_col_{selected_shipper}").upper()
-            
-            ic_in3, ic_in4, ic_in5 = st.columns([2, 2, 1])
-            with ic_in3:
-                c_type_input = st.selectbox("Rule Type:", ["PDF Row Item", "Constant Text", "Smart Detection"], key=f"new_item_type_{selected_shipper}")
-            with ic_in4:
-                c_rule_input = st.text_input("Rule Detail / Value (उदा: B19, SET, PCS):", key=f"new_item_rule_{selected_shipper}")
-            with ic_in5:
-                st.markdown("<br>", unsafe_allow_html=True)
-                add_item_btn = st.button("Add Item", type="primary", key=f"btn_add_item_action_{selected_shipper}")
-                
-            if add_item_btn:
-                if not c_name_input or not c_col_input:
-                    st.error("Heading Name और Column Letter अनिवार्य हैं!")
-                else:
-                    item_rules = shipper_info.setdefault("item_table_rules", {})
-                    i_clean = c_name_input.strip()
-                    if i_clean in item_rules:
-                        st.warning(f"⚠️ कॉलम '{i_clean}' पहले से मौजूद है!")
-                    else:
-                        item_rules[i_clean] = {"col": c_col_input.strip(), "type": c_type_input, "rule": c_rule_input.strip()}
-                        st.success(f"🎉 कॉलम '{i_clean}' जुड़ गया!")
-                        st.rerun()
+            c_head, c_add_btn = st.columns([7, 3])
+            with c_head:
+                st.subheader("📦 Dynamic Item Table Column Builder")
+            with c_add_btn:
+                if st.button("➕ Add Item Column", use_container_width=True, key="btn_add_item_col_main"):
+                    add_item_col_dialog(selected_shipper)
             
             item_rules = shipper_info.get("item_table_rules", {})
             updated_item_rules = {}
