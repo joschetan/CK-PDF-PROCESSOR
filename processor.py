@@ -2,12 +2,42 @@ import streamlit as st
 import openpyxl
 import pdfplumber
 import re
+import requests
+import json
 from io import BytesIO
 
 from parser_sample import extract_welspun_items, map_items_to_excel_dynamic as map_sample
 from parser_bkt_register import extract_bkt_items, map_items_to_excel_dynamic as map_bkt
 from shipper_data import fetch_data_from_github, ensure_default_shipper
 from pdf_engine import apply_rule_filter, extract_header_value
+
+# गूगल शीट पर डेटा भेजने के लिए एप्स स्क्रिप्ट का यूआरएल (यदि लिंक दी गई हो)
+GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwYVVWbqNZbzTOujVmip41KlID-rf9zEQLy_JM04ZEhUL-kixwRMD9nbPnOrZ46Fmz3/exec"
+
+def send_data_to_target_google_sheet(sheet_link, tab_name, wb):
+    """यदि शिपर के पास टारगेट गूगल शीट लिंक है तो एक्सेल डेटा को शीट पर पुश करता है"""
+    try:
+        if not sheet_link or not sheet_link.strip():
+            return False
+            
+        # वर्कबुक के डेटा को डिक्शनरी या लिस्ट में बदलकर एप्स स्क्रिप्ट को भेजना
+        ws = wb["INV"] if "INV" in wb.sheetnames else wb.active
+        rows_data = []
+        for row in ws.iter_rows(values_only=True):
+            if any(row): # खाली पंक्तियाँ छोड़ दें
+                rows_data.append(list(row))
+                
+        payload = {
+            "action": "append_to_target_sheet",
+            "sheet_link": sheet_link.strip(),
+            "tab_name": tab_name.strip() if tab_name else "Sheet1",
+            "data": rows_data
+        }
+        
+        response = requests.post(GOOGLE_SHEET_WEB_APP_URL, data=json.dumps(payload), timeout=60)
+        return response.status_code == 200
+    except Exception:
+        return False
 
 def render_processor():
     fetch_data_from_github()
@@ -95,9 +125,8 @@ def render_processor():
                     rules = shipper_info.get("mapping_rules", {})
                     item_table_rules = shipper_info.get("item_table_rules", {})
                     
-                    igst_cfg = shipper_info.get("igst_config", {})
-                    lut_kws = igst_cfg.get("lut_keywords", "")
-                    paid_kws = igst_cfg.get("paid_keywords", "")
+                    target_sheet_link = shipper_info.get("target_sheet_link", "")
+                    target_tab_name = shipper_info.get("target_tab_name", "Sheet1")
                     
                     # --- EXCEL WORKBOOK SETUP ---
                     if excel_template:
@@ -184,7 +213,7 @@ def render_processor():
                             i_col = i_info.get("col", "K")
                             resolved_item_rules[i_name] = {"col": i_col, "type": i_type, "rule": i_rule}
 
-                        # ⚡ शिपर द्वारा चुने गए पार्सर के आधार पर आइटम एक्सट्रेक्ट करें[cite: 6]
+                        # ⚡ शिपर द्वारा चुने गए पार्सर के आधार पर आइटम एक्सट्रेक्ट करें
                         if assigned_parser == "parser_bkt_register":
                             parsed_items = extract_bkt_items(pdf_lines, pdf_text=pdf_text)
                             ws, overall_item_sr, excel_write_row = map_bkt(
@@ -195,8 +224,6 @@ def render_processor():
                                 default_invoice_no=current_inv_number, 
                                 default_invoice_date=current_inv_date,
                                 pdf_text=pdf_text,
-                                lut_kws=lut_kws,
-                                paid_kws=paid_kws,
                                 parser_rule=assigned_parser
                             )
                         else:
@@ -209,14 +236,20 @@ def render_processor():
                                 default_invoice_no=current_inv_number, 
                                 default_invoice_date=current_inv_date,
                                 pdf_text=pdf_text,
-                                lut_kws=lut_kws,
-                                paid_kws=paid_kws,
                                 parser_rule=assigned_parser
                             )
 
                     output = BytesIO()
                     wb.save(output)
                     
+                    # यदि टारगेट गूगल शीट लिंक दी गई है तो डेटा वहाँ भी भेजें
+                    if target_sheet_link and target_sheet_link.strip():
+                        sheet_success = send_data_to_target_google_sheet(target_sheet_link, target_tab_name, wb)
+                        if sheet_success:
+                            st.success("☁️ डेटा आपकी दी गई टारगेट गूगल शीट पर भी सफलतापूर्वक सिंक हो गया है!")
+                        else:
+                            st.warning("⚠️ एक्सेल फाइल तैयार है, लेकिन टारगेट गूगल शीट पर डेटा भेजने में विफल रहा (लिंक चेक करें)।")
+
                     short_shipper = selected_shipper.split(" ")[0].lower()
                     clean_inv = re.sub(r'[\\/*?:"<>|]', "", first_inv_no)
                     final_filename = f"{clean_inv}_{short_shipper}_BatchProcessed.xlsx"
@@ -234,7 +267,7 @@ def render_processor():
                     use_container_width=True
                 )
                 
-    # स्क्रीन के बिल्कुल नीचे हमेशा दिखने वाला प्रोफेशनल फुटर
+    # स्क्रीन के नीचे प्रोफेशनल फुटर
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     st.markdown(
         """
