@@ -78,10 +78,11 @@ def show_field_test_dialog(field_name, rule_data, result_val):
 @st.dialog("➕ Add New Custom Header Field")
 def add_custom_header_field_dialog(selected_shipper):
     st.write("यहाँ नया हेडर फ़ील्ड जोड़ें:")
-    new_field = st.text_input("Field Name (उदा: Invoice No, GST Inv No):")
+    # 🛠️ यहाँ key जोड़ने से वैल्यू रिफ्रेश होने पर उड़ेगी नहीं
+    new_field = st.text_input("Field Name (उदा: Invoice No, GST Inv No):", key="dialog_new_header_field_input")
     
     if st.button("Confirm & Add Field", type="primary"):
-        if not new_field.strip():
+        if not new_field or not new_field.strip():
             st.error("फ़ील्ड नाम खाली नहीं हो सकता!")
         else:
             rules = st.session_state["shipper_database"][selected_shipper].setdefault("mapping_rules", {})
@@ -95,10 +96,10 @@ def add_custom_header_field_dialog(selected_shipper):
 @st.dialog("➕ Add Item Column Rule")
 def add_item_col_dialog(selected_shipper):
     st.write("यहाँ आइटम टेबल के लिए नया कॉलम हेडिंग और एक्सेल कॉलम जोड़ें:")
-    c_name = st.text_input("Heading Name (उदा: Net Weight, Boxes, Size):")
-    c_col = st.text_input("Excel Column Letter (उदा: L, M, N, Z):").upper()
-    c_type = st.selectbox("Rule Type:", ["PDF Row Item", "Constant Text", "Smart Detection"])
-    c_rule = st.text_input("Rule Detail / Value (उदा: B19, SET, PCS):")
+    c_name = st.text_input("Heading Name (उदा: Net Weight, Boxes, Size):", key="dialog_item_heading_input")
+    c_col = st.text_input("Excel Column Letter (उदा: L, M, N, Z):", key="dialog_item_col_input").upper()
+    c_type = st.selectbox("Rule Type:", ["PDF Row Item", "Constant Text", "Smart Detection"], key="dialog_item_type_select")
+    c_rule = st.text_input("Rule Detail / Value (उदा: B19, SET, PCS):", key="dialog_item_rule_input")
     
     if st.button("Confirm & Add Item Column", type="primary"):
         if not c_name or not c_col:
@@ -153,11 +154,8 @@ def render_shipper_data():
             st.write(f"### ⚙️ प्रोफाइल सेटअप और रूल्स: **{selected_shipper}**")
             shipper_info = st.session_state["shipper_database"][selected_shipper]
             
-            # पार्सर सिलेक्शन (कोई भी डिफ़ॉल्ट नहीं, यूजर खुद चुनेगा)
             available_parsers = ["parser_sample", "parser_bkt_register"]
             current_parser = shipper_info.get("item_table_rule_name", "")
-            
-            p_idx = available_parsers.index(current_parser) if current_parser in available_parsers else 0
             
             updated_parser_choice = st.selectbox(
                 "📌 इस शिपर के लिए एक्टिव पार्सर रूल (Parser File) चुनें:", 
@@ -172,7 +170,6 @@ def render_shipper_data():
                 shipper_info["item_table_rule_name"] = ""
                 st.warning("⚠️ कृपया इस शिपर के लिए एक वैध पार्सर रूल चुनें!")
 
-            # Target Google Sheet Link और Sheet/Tab Name इनपुट फील्ड्स
             st.markdown("#### ☁️ Target Google Sheet Destination Config")
             col_gs1, col_gs2 = st.columns(2)
             with col_gs1:
@@ -293,7 +290,6 @@ def render_shipper_data():
             shipper_info["item_table_rules"] = updated_item_rules
             st.write("---")
             
-            # 🚀 GitHub पर रूल्स सेव करने का बटन
             if st.button("💾 Save Rules to GitHub JSON", type="primary", use_container_width=True, key="btn_save_rules_github"):
                 shippers_payload = {}
                 for s_name, s_data in st.session_state["shipper_database"].items():
