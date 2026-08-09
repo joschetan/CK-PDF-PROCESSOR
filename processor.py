@@ -13,14 +13,12 @@ def render_processor():
     fetch_data_from_github()
     ensure_default_shipper()
     
-    # 🌟 प्रोफेशनल लुक के लिए साइडबार या टॉप पर क्रिएटर प्रोफाइल जोड़ना
+    # 🌟 साइडबार में डेवलपर प्रोफाइल (फोटो और संपर्क विवरण)
     with st.sidebar:
         st.markdown("---")
         try:
-            # यहाँ अपनी फोटो का नाम लिखें (जैसे 'chetan.jpg' या 'photo.png')
             st.image("ck_photo.jpg", width=100, caption="Chetan Joshi")
         except Exception:
-            # अगर फोटो फाइल न मिले तो यह डिफ़ॉल्ट आइकॉन दिखाएगा ताकि ऐप क्रैश न हो
             st.markdown("👤")
             
         st.markdown("### **System Developer**")
@@ -44,7 +42,7 @@ def render_processor():
     if selected_shipper == "-- कृपया शिपर चुनें या सर्च करें --":
         st.info("👆 कृपया प्रोसेसिंग शुरू करने के लिए ऊपर दिए गए ड्रॉपडाउन से शिपर चुनें।")
         
-        # 🌐 सॉफ्टवेयर के नीचे ग्लोबल प्रोफेशनल फुटर (Powered / Managed by)
+        # स्क्रीन के नीचे प्रोफेशनल फुटर
         st.markdown("<br><br><br>", unsafe_allow_html=True)
         st.markdown(
             """
@@ -186,7 +184,7 @@ def render_processor():
                             i_col = i_info.get("col", "K")
                             resolved_item_rules[i_name] = {"col": i_col, "type": i_type, "rule": i_rule}
 
-                        # ⚡ शिपर द्वारा चुने गए पार्सर के आधार पर आइटम एक्सट्रेक्ट करें
+                        # ⚡ शिपर द्वारा चुने गए पार्सर के आधार पर आइटम एक्सट्रेक्ट करें[cite: 6]
                         if assigned_parser == "parser_bkt_register":
                             parsed_items = extract_bkt_items(pdf_lines, pdf_text=pdf_text)
                             ws, overall_item_sr, excel_write_row = map_bkt(
@@ -202,7 +200,6 @@ def render_processor():
                                 parser_rule=assigned_parser
                             )
                         else:
-                            # डिफ़ॉल्ट या sample पार्सर
                             parsed_items = extract_welspun_items(pdf_lines, pdf_text=pdf_text)
                             ws, overall_item_sr, excel_write_row = map_sample(
                                 ws, parsed_items, resolved_item_rules,
@@ -237,7 +234,7 @@ def render_processor():
                     use_container_width=True
                 )
                 
-    # 🌐 स्क्रीन के बिल्कुल नीचे हमेशा दिखने वाला प्रोफेशनल फुटर
+    # स्क्रीन के बिल्कुल नीचे हमेशा दिखने वाला प्रोफेशनल फुटर
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     st.markdown(
         """
