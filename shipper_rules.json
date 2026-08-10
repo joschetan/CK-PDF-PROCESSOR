@@ -12,6 +12,8 @@
             }
         },
         "item_table_rules": {},
-        "item_table_rule_name": "parser_bkt_register"
+        "item_table_rule_name": "parser_bkt_register",
+        "target_sheet_link": "",
+        "target_tab_name": "Sheet1"
     }
 }
