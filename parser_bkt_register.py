@@ -51,7 +51,6 @@ def extract_bkt_items(pdf_lines, pdf_text=""):
             total_qty = qty_match.group(1)
 
     extracted_items.append({
-        "description": combined_hscodes,
         "qty": total_qty if total_qty else "0",
         "net_weight": total_net,
         "gross_weight": total_gross,
@@ -60,10 +59,10 @@ def extract_bkt_items(pdf_lines, pdf_text=""):
         
     if not extracted_items:
         extracted_items.append({
-            "description": "Default Item / Description",
             "qty": "1",
-            "rate": "0",
-            "amount": "0"
+            "net_weight": "0",
+            "gross_weight": "0",
+            "hs_code": ""
         })
         
     return extracted_items
@@ -75,7 +74,8 @@ def map_items_to_excel_dynamic(
     pdf_text="", lut_kws="", paid_kws="", parser_rule="parser_bkt_register"
 ):
     """
-    यूजर द्वारा बनाए गए आइटम टेबल कॉलम रूल्स के अनुसार सटीक Excel Col पर डेटा मैप करता है।
+    यूजर द्वारा बनाए गए आइटम टेबल कॉलम रूल्स (Item Field Name) के अनुसार 
+    सटीक Excel Col पर सही डेटा मैप करता है।
     """
     current_excel_row = start_excel_row
     overall_sr = start_overall_sr
@@ -84,23 +84,24 @@ def map_items_to_excel_dynamic(
         for heading_name, rule_info in resolved_item_rules.items():
             col_letter = rule_info.get("col", "A").upper()
             rule_type = rule_info.get("type", "PDF Row Item")
-            rule_val = rule_info.get("rule", "")
+            rule_val = rule_info.get("rule", "").strip()
             
             cell_ref = f"{col_letter}{current_excel_row}"
-            h_lower = heading_name.lower()
+            h_upper = heading_name.upper()
+            r_upper = rule_val.upper()
             
             if rule_type == "Constant Text":
                 ws[cell_ref] = rule_val
-            elif "net" in h_lower:
+            elif "NET" in h_upper or "NET" in r_upper:
                 ws[cell_ref] = item.get("net_weight", "")
-            elif "gross" in h_lower:
+            elif "GROSS" in h_upper or "GROSS" in r_upper:
                 ws[cell_ref] = item.get("gross_weight", "")
-            elif "qty" in h_lower or "quantity" in h_lower:
+            elif "QTY" in h_upper or "QUANTITY" in h_upper or "QTY" in r_upper or "QUANTITY" in r_upper or "PACKAGES" in h_upper:
                 ws[cell_ref] = item.get("qty", "")
-            elif "hs" in h_lower or "code" in h_lower:
+            elif "HS" in h_upper or "CODE" in h_upper or "HS" in r_upper or "CODE" in r_upper:
                 ws[cell_ref] = item.get("hs_code", "")
             else:
-                ws[cell_ref] = item.get("description", "")
+                ws[cell_ref] = item.get("qty", "")
                 
         current_excel_row += 1
         overall_sr += 1
