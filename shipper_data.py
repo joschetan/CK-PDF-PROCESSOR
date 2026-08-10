@@ -87,6 +87,10 @@ def render_shipper_data():
     with st.expander("➕ Add New Shipper (नया शिपर जोड़ें)", expanded=False):
         new_shipper_name = st.text_input("नया शिपर कंपनी का नाम दर्ज करें:", key="input_new_shipper_name")
         
+        # 📌 यहाँ 'parser_bkt_register' विकल्प के रूप में उपलब्ध है
+        available_parsers = ["parser_bkt_register"]
+        selected_parser_rule = st.selectbox("इस शिपर के लिए पार्सर चुनें:", available_parsers, key="input_new_shipper_parser")
+        
         if st.button("Create New Shipper Profile", type="primary", key="btn_create_shipper"):
             if not new_shipper_name.strip():
                 st.error("शिपर का नाम खाली नहीं हो सकता!")
@@ -96,9 +100,9 @@ def render_shipper_data():
                     st.session_state["shipper_database"][s_clean] = {
                         "mapping_rules": {},
                         "item_table_rules": {},
-                        "item_table_rule_name": "parser_bkt_register"
+                        "item_table_rule_name": selected_parser_rule
                     }
-                    st.success(f"🎉 नया शिपर '{s_clean}' सफलतापूर्वक जुड़ गया है!")
+                    st.success(f"🎉 नया शिपर '{s_clean}' और पार्सर '{selected_parser_rule}' सफलतापूर्वक जुड़ गया है!")
                     st.rerun()
                 else:
                     st.warning("⚠️ यह शिपर पहले से मौजूद है!")
@@ -116,7 +120,14 @@ def render_shipper_data():
         if selected_shipper:
             st.write(f"### ⚙️ रूल्स कॉन्फ़िगरेशन: **{selected_shipper}**")
             shipper_info = st.session_state["shipper_database"][selected_shipper]
-            shipper_info["item_table_rule_name"] = "parser_bkt_register"
+            
+            # 📌 यहाँ से एक्टिव पार्सर बदलने का ड्रॉपडाउन भी वापस आ गया है
+            current_assigned_parser = shipper_info.get("item_table_rule_name", "parser_bkt_register")
+            available_parsers = ["parser_bkt_register"] # भविष्य में नए पार्सर यहाँ जोड़े जा सकेंगे
+            p_idx = available_parsers.index(current_assigned_parser) if current_assigned_parser in available_parsers else 0
+            
+            updated_parser_choice = st.selectbox("📌 इस शिपर के लिए एक्टिव पार्सर रूल (Parser File):", available_parsers, index=p_idx, key=f"sel_parser_{selected_shipper}")
+            shipper_info["item_table_rule_name"] = updated_parser_choice
 
             st.write("---")
             st.subheader("🧪 Instant PDF Upload & Live Data Test Engine")
