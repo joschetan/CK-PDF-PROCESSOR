@@ -4,7 +4,6 @@ import pdfplumber
 import re
 from io import BytesIO
 
-from parser_sample import extract_welspun_items, map_items_to_excel_dynamic as map_sample
 from parser_bkt_register import extract_bkt_items, map_items_to_excel_dynamic as map_bkt
 from shipper_data import ensure_default_shipper
 from pdf_engine import extract_header_value
@@ -43,7 +42,7 @@ def render_processor():
         
     if selected_shipper:
         shipper_info = st.session_state["shipper_database"][selected_shipper]
-        assigned_parser = shipper_info.get("item_table_rule_name", "parser_sample")
+        assigned_parser = shipper_info.get("item_table_rule_name", "parser_bkt_register")
         
         st.markdown("---")
         st.subheader("📂 Custom Excel Format / Template (Optional)")
@@ -159,31 +158,18 @@ def render_processor():
                             i_col = i_info.get("col", "K")
                             resolved_item_rules[i_name] = {"col": i_col, "type": i_type, "rule": i_rule}
 
-                        # 📌 यहाँ परररर/पार्सर चयन चेक किया जा रहा है
-                        if assigned_parser == "parser_bkt_register":
-                            parsed_items = extract_bkt_items(pdf_lines, pdf_text=pdf_text)
-                            ws, overall_item_sr, excel_write_row = map_bkt(
-                                ws, parsed_items, resolved_item_rules,
-                                inv_sr_no=inv_idx+1, 
-                                start_overall_sr=overall_item_sr, 
-                                start_excel_row=excel_write_row, 
-                                default_invoice_no=current_inv_number, 
-                                default_invoice_date=current_inv_date,
-                                pdf_text=pdf_text,
-                                parser_rule=assigned_parser
-                            )
-                        else:
-                            parsed_items = extract_welspun_items(pdf_lines, pdf_text=pdf_text)
-                            ws, overall_item_sr, excel_write_row = map_sample(
-                                ws, parsed_items, resolved_item_rules,
-                                inv_sr_no=inv_idx+1, 
-                                start_overall_sr=overall_item_sr, 
-                                start_excel_row=excel_write_row, 
-                                default_invoice_no=current_inv_number, 
-                                default_invoice_date=current_inv_date,
-                                pdf_text=pdf_text,
-                                parser_rule=assigned_parser
-                            )
+                        # 📌 केवल bkt_register पार्सर का इस्तेमाल होगा
+                        parsed_items = extract_bkt_items(pdf_lines, pdf_text=pdf_text)
+                        ws, overall_item_sr, excel_write_row = map_bkt(
+                            ws, parsed_items, resolved_item_rules,
+                            inv_sr_no=inv_idx+1, 
+                            start_overall_sr=overall_item_sr, 
+                            start_excel_row=excel_write_row, 
+                            default_invoice_no=current_inv_number, 
+                            default_invoice_date=current_inv_date,
+                            pdf_text=pdf_text,
+                            parser_rule=assigned_parser
+                        )
 
                     output = BytesIO()
                     wb.save(output)
