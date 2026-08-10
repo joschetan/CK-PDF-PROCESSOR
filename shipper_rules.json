@@ -27,6 +27,69 @@
                 "stop_kw": "2",
                 "filter": "None",
                 "fallback": ""
+            },
+            "INVOICE DATE ": {
+                "keyword": "&dt",
+                "position": "Right (\u0906\u0917\u0947)",
+                "cell": "F",
+                "match_mode": "Exact Word",
+                "stop_kw": "",
+                "filter": "Clean Date (DD/MM/YYYY)",
+                "fallback": ""
+            },
+            "BUYER CONSIGNEE": {
+                "keyword": "Other reference(s)",
+                "position": "2 Lines Below",
+                "cell": "K",
+                "match_mode": "Full Line",
+                "stop_kw": "",
+                "filter": "None",
+                "fallback": ""
+            },
+            "L.Sealno": {
+                "keyword": "LINE SEAL NO:",
+                "position": "Right (\u0906\u0917\u0947)",
+                "cell": "M",
+                "match_mode": "Exact Word",
+                "stop_kw": "",
+                "filter": "None",
+                "fallback": ""
+            },
+            "NET WT": {
+                "keyword": "Total",
+                "position": "2 Lines Below",
+                "cell": "",
+                "match_mode": "Exact Word",
+                "stop_kw": "",
+                "filter": "None",
+                "fallback": ""
+            },
+            "GROSS WT": {
+                "keyword": "",
+                "position": "Right (\u0906\u0917\u0947)",
+                "cell": "",
+                "match_mode": "Exact Word",
+                "stop_kw": "",
+                "filter": "None",
+                "fallback": ""
+            },
+            "PACKAGES": {
+                "keyword": "",
+                "position": "Right (\u0906\u0917\u0947)",
+                "cell": "",
+                "match_mode": "Exact Word",
+                "stop_kw": "",
+                "filter": "None",
+                "fallback": ""
+            },
+            "HS CODE": {
+                "keyword": "",
+                "position": "Right (\u0906\u0917\u0947)",
+                "cell": "",
+                "match_mode": "Exact Word",
+                "stop_kw": "",
+                "filter": "None",
+                "fallback": ""
             }
         },
         "item_table_rules": {},
