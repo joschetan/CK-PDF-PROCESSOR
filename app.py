@@ -85,14 +85,19 @@ def main():
     if not check_app_password():
         return
 
-    st.title("📄 CK PDF PROCESSOR")
-    st.markdown("---")
+    # यदि एडमिन लॉगिन (authenticated) है, तो केवल एडमिन ज़ोन दिखाएं, मुख्य पेज छिपा दें
+    if st.session_state.admin_authenticated:
+        check_admin_password()
+    else:
+        # सामान्य यूजर के लिए मुख्य प्रोसेसिंग ज़ोन और नीचे एडमिन लॉगिन का ऑप्शन दिखेगा
+        st.title("📄 CK PDF PROCESSOR")
+        st.markdown("---")
 
-    # 1. Main Processing Zone (सबके लिए उपलब्ध जो ऐप पासवर्ड से अंदर हैं)
-    render_processor()
+        # 1. Main Processing Zone
+        render_processor()
 
-    # 2. नीचे एडमिन कॉन्फ़िगरेशन ज़ोन (अलग एडमिन पासवर्ड से सुरक्षित)
-    check_admin_password()
+        # 2. नीचे एडमिन कॉन्फ़िगरेशन ज़ोन (पासवर्ड मांगने वाला बॉक्स)
+        check_admin_password()
     
     # ऐप से पूरी तरह बाहर आने (Logout) के लिए बटन
     st.markdown("<br><hr>", unsafe_allow_html=True)
