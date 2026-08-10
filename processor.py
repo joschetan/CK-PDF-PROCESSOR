@@ -8,7 +8,7 @@ from io import BytesIO
 
 from parser_sample import extract_welspun_items, map_items_to_excel_dynamic as map_sample
 from parser_bkt_register import extract_bkt_items, map_items_to_excel_dynamic as map_bkt
-from shipper_data import fetch_data_from_github, ensure_default_shipper
+from shipper_data import fetch_data_from_google_sheet, ensure_default_shipper
 from pdf_engine import apply_rule_filter, extract_header_value
 
 # गूगल शीट पर डेटा भेजने के लिए एप्स स्क्रिप्ट का यूआरएल (यदि लिंक दी गई हो)
@@ -20,11 +20,10 @@ def send_data_to_target_google_sheet(sheet_link, tab_name, wb):
         if not sheet_link or not sheet_link.strip():
             return False
             
-        # वर्कबुक के डेटा को डिक्शनरी या लिस्ट में बदलकर एप्स स्क्रिप्ट को भेजना
         ws = wb["INV"] if "INV" in wb.sheetnames else wb.active
         rows_data = []
         for row in ws.iter_rows(values_only=True):
-            if any(row): # खाली पंक्तियाँ छोड़ दें
+            if any(row): 
                 rows_data.append(list(row))
                 
         payload = {
@@ -40,7 +39,7 @@ def send_data_to_target_google_sheet(sheet_link, tab_name, wb):
         return False
 
 def render_processor():
-    fetch_data_from_github()
+    fetch_data_from_google_sheet()
     ensure_default_shipper()
     
     # 🌟 साइडबार में डेवलपर प्रोफाइल (फोटो और संपर्क विवरण)
@@ -59,20 +58,19 @@ def render_processor():
     st.header("📄 CK PDF PROCESSOR")
     st.caption("एक साथ कई स्टैंडर्ड PDF इनवॉइस अपलोड करें, प्रोसेस करें और एक्सेल डाउनलोड करें।")
     
-    shippers_list = list(st.session_state["shipper_database"].keys())
+    shippers_list = sorted(list(st.session_state["shipper_database"].keys()))
     
-    # डिफ़ॉल्ट रूप से खाली / None ताकि कोई शिपर पहले से सेलेक्टेड न रहे
     selected_shipper = st.selectbox(
         "किस शिपर का इनवॉइस प्रोसेस करना है?", 
-        options=["-- कृपया शिपर चुनें या सर्च करें --"] + shippers_list,
-        index=0,
+        shippers_list,
+        index=None,
+        placeholder="शिपर का नाम टाइप करें या चुनें...",
         key="processor_shipper_select"
     )
     
-    if selected_shipper == "-- कृपया शिपर चुनें या सर्च करें --":
+    if not selected_shipper:
         st.info("👆 कृपया प्रोसेसिंग शुरू करने के लिए ऊपर दिए गए ड्रॉपडाउन से शिपर चुनें।")
         
-        # स्क्रीन के नीचे प्रोफेशनल फुटर
         st.markdown("<br><br><br>", unsafe_allow_html=True)
         st.markdown(
             """
@@ -88,15 +86,10 @@ def render_processor():
         
     if selected_shipper:
         shipper_info = st.session_state["shipper_database"][selected_shipper]
-        assigned_parser = shipper_info.get("item_table_rule_name", "")
+        assigned_parser = shipper_info.get("item_table_rule_name", "parser_welspun")
         
-        if not assigned_parser:
-            st.warning("⚠️ इस शिपर के लिए कोई पार्सर रूल सेट नहीं है! कृपया एडमिन ज़ोन में जाकर पार्सर चुनें और सेव करें।")
-            return
-            
         st.markdown("---")
         
-        # 📂 Custom Excel Format / Template Upload (Optional)
         st.subheader("📂 Custom Excel Format / Template (Optional)")
         excel_template = st.file_uploader(
             "यदि आपके पास कोई अपना फिक्स एक्सेल फॉर्मेट है, तो यहाँ अपलोड करें (अन्यथा डिफ़ॉल्ट फॉर्मेट बनेगा):", 
@@ -128,7 +121,6 @@ def render_processor():
                     target_sheet_link = shipper_info.get("target_sheet_link", "")
                     target_tab_name = shipper_info.get("target_tab_name", "Sheet1")
                     
-                    # --- EXCEL WORKBOOK SETUP ---
                     if excel_template:
                         wb = openpyxl.load_workbook(excel_template)
                         ws = wb["INV"] if "INV" in wb.sheetnames else wb.active
@@ -168,10 +160,11 @@ def render_processor():
                             pos = r_info.get("position", "Right (आगे)")
                             target_cell = r_info.get("cell", "").strip().upper()
                             mode = r_info.get("match_mode", "Exact Word")
+                            stop_kw = r_info.get("stop_kw", "")
                             flt = r_info.get("filter", "None")
                             fallback_val = r_info.get("fallback", "").strip()
                             
-                            found_val = extract_header_value(pdf_lines, pdf_text, kw, pos, mode, "", flt, field_label=field, pdf_bytes=file_bytes_cache)
+                            found_val = extract_header_value(pdf_lines, pdf_text, kw, pos, mode, stop_kw, flt, field_label=field, pdf_bytes=file_bytes_cache)
                             
                             if not found_val or not found_val.strip():
                                 if fallback_val:
@@ -213,8 +206,7 @@ def render_processor():
                             i_col = i_info.get("col", "K")
                             resolved_item_rules[i_name] = {"col": i_col, "type": i_type, "rule": i_rule}
 
-                        # ⚡ शिपर द्वारा चुने गए पार्सर के आधार पर आइटम एक्सट्रेक्ट करें
-                        if assigned_parser == "parser_bkt_register":
+                        if assigned_parser == "parser_bkt":
                             parsed_items = extract_bkt_items(pdf_lines, pdf_text=pdf_text)
                             ws, overall_item_sr, excel_write_row = map_bkt(
                                 ws, parsed_items, resolved_item_rules,
@@ -242,7 +234,6 @@ def render_processor():
                     output = BytesIO()
                     wb.save(output)
                     
-                    # यदि टारगेट गूगल शीट लिंक दी गई है तो डेटा वहाँ भी भेजें
                     if target_sheet_link and target_sheet_link.strip():
                         sheet_success = send_data_to_target_google_sheet(target_sheet_link, target_tab_name, wb)
                         if sheet_success:
@@ -267,7 +258,6 @@ def render_processor():
                     use_container_width=True
                 )
                 
-    # स्क्रीन के नीचे प्रोफेशनल फुटर
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     st.markdown(
         """
