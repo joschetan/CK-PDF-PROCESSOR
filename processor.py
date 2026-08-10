@@ -2,11 +2,39 @@ import streamlit as st
 import openpyxl
 import pdfplumber
 import re
+import requests
+import json
 from io import BytesIO
 
 from parser_bkt_register import extract_bkt_items, map_items_to_excel_dynamic as map_bkt
 from shipper_data import ensure_default_shipper
 from pdf_engine import extract_header_value
+
+GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwYVVWbqNZbzTOujVmip41KlID-rf9zEQLy_JM04ZEhUL-kixwRMD9nbPnOrZ46Fmz3/exec"
+
+def send_data_to_target_google_sheet(sheet_link, tab_name, wb):
+    """यदि शिपर के पास टारगेट गूगल शीट लिंक है तो एक्सेल डेटा को शीट पर पुश करता है"""
+    try:
+        if not sheet_link or not sheet_link.strip():
+            return False
+            
+        ws = wb["INV"] if "INV" in wb.sheetnames else wb.active
+        rows_data = []
+        for row in ws.iter_rows(values_only=True):
+            if any(row): 
+                rows_data.append(list(row))
+                
+        payload = {
+            "action": "append_to_target_sheet",
+            "sheet_link": sheet_link.strip(),
+            "tab_name": tab_name.strip() if tab_name else "Sheet1",
+            "data": rows_data
+        }
+        
+        response = requests.post(GOOGLE_SHEET_WEB_APP_URL, data=json.dumps(payload), timeout=60)
+        return response.status_code == 200
+    except Exception:
+        return False
 
 def render_processor():
     ensure_default_shipper()
@@ -72,6 +100,9 @@ def render_processor():
                 with st.spinner(f"कुल {len(uploaded_pdfs)} PDF फाइलें प्रोसेस हो रही हैं... कृपया प्रतीक्षा करें..."):
                     rules = shipper_info.get("mapping_rules", {})
                     item_table_rules = shipper_info.get("item_table_rules", {})
+                    
+                    target_sheet_link = shipper_info.get("target_sheet_link", "")
+                    target_tab_name = shipper_info.get("target_tab_name", "Sheet1")
                     
                     if excel_template:
                         wb = openpyxl.load_workbook(excel_template)
@@ -158,7 +189,6 @@ def render_processor():
                             i_col = i_info.get("col", "K")
                             resolved_item_rules[i_name] = {"col": i_col, "type": i_type, "rule": i_rule}
 
-                        # 📌 केवल bkt_register पार्सर का इस्तेमाल होगा
                         parsed_items = extract_bkt_items(pdf_lines, pdf_text=pdf_text)
                         ws, overall_item_sr, excel_write_row = map_bkt(
                             ws, parsed_items, resolved_item_rules,
@@ -174,6 +204,13 @@ def render_processor():
                     output = BytesIO()
                     wb.save(output)
                     
+                    if target_sheet_link and target_sheet_link.strip():
+                        sheet_success = send_data_to_target_google_sheet(target_sheet_link, target_tab_name, wb)
+                        if sheet_success:
+                            st.success("☁️ डेटा आपकी दी गई टारगेट गूगल शीट पर भी सफलतापूर्वक सिंक हो गया है!")
+                        else:
+                            st.warning("⚠️ एक्सेल फाइल तैयार है, लेकिन टारगेट गूगल शीट पर डेटा भेजने में विफल रहा (लिंक चेक करें)।")
+
                     short_shipper = selected_shipper.split(" ")[0].lower()
                     clean_inv = re.sub(r'[\\/*?:"<>|]', "", first_inv_no)
                     final_filename = f"{clean_inv}_{short_shipper}_BatchProcessed.xlsx"
