@@ -1,66 +1,13 @@
 import streamlit as st
-import base64
 import pdfplumber
-import os
 import re
 from io import BytesIO
 
 from pdf_engine import extract_header_value
-from test_suite import render_universal_test_suite
-from google_sheet_sync import fetch_all_from_sheet, push_rules_to_sheet, push_template_file_to_sheet, get_val_case_insensitive, load_template_bytes_from_sheet
 
 def ensure_default_shipper():
-    # डिफ़ॉल्ट शिपर को हटा दिया गया है, अब यह खाली डिक्शनरी से शुरू होगा
     if "shipper_database" not in st.session_state:
         st.session_state["shipper_database"] = {}
-
-@st.cache_data(show_spinner=False)
-def fetch_cached_sheet_data():
-    return fetch_all_from_sheet()
-
-def fetch_data_from_google_sheet(show_toast=False):
-    ensure_default_shipper()
-    try:
-        data = fetch_cached_sheet_data()
-        if not data:
-            if show_toast: st.error("⚠️ गूगल शीट से डेटा नहीं मिला.")
-            return
-
-        shippers_dict = data.get("shippers", {})
-        if not shippers_dict and isinstance(data, dict):
-            shippers_dict = data
-        
-        for s_name, s_data in shippers_dict.items():
-            if not s_name or s_name == "error":
-                continue
-                
-            if s_name not in st.session_state["shipper_database"]:
-                st.session_state["shipper_database"][s_name] = {
-                    "allowed_uploads": ["Full Job Excel Format File"],
-                    "uploaded_files": {},
-                    "mapping_rules": {},
-                    "item_table_rules": {},
-                    "item_table_rule_name": "parser_welspun",
-                    "target_sheet_link": "",
-                    "target_tab_name": "Sheet1"
-                }
-            
-            shipper_info = st.session_state["shipper_database"][s_name]
-            
-            if isinstance(s_data, dict):
-                shipper_info["mapping_rules"] = s_data.get("mapping_rules", {})
-                shipper_info["item_table_rules"] = s_data.get("item_table_rules", {})
-                shipper_info["item_table_rule_name"] = s_data.get("item_table_rule_name", "parser_welspun")
-                shipper_info["target_sheet_link"] = s_data.get("target_sheet_link", "")
-                shipper_info["target_tab_name"] = s_data.get("target_tab_name", "Sheet1")
-
-            t_bytes = load_template_bytes_from_sheet(s_name)
-            if t_bytes:
-                shipper_info.setdefault("uploaded_files", {})["Full Job Excel Format File"] = t_bytes
-
-        if show_toast: st.toast("✅ गूगल शीट से रूल्स और टेम्पलेट लोड हो गए!")
-    except Exception as e:
-        if show_toast: st.error(f"फ़ैच एरर: {str(e)}")
 
 @st.dialog("🧪 Live Extraction Field Test Result")
 def show_field_test_dialog(field_name, rule_data, result_val):
@@ -114,7 +61,7 @@ def add_custom_header_field_dialog(selected_shipper):
                 "logic": doc_source,
                 "fallback": ""
             }
-            st.success(f"🎉 फ़ील्ड '{new_field}' ({doc_source}) जुड़ गया!")
+            st.success(f"🎉 फ़ील्ड '{new_field}' जुड़ गया!")
             st.rerun()
 
 @st.dialog("➕ Add Item Column Rule")
@@ -123,7 +70,7 @@ def add_item_col_dialog(selected_shipper):
     c_name = st.text_input("Heading Name (उदा: Net Weight, Boxes, Size):")
     c_col = st.text_input("Excel Column Letter (उदा: L, M, N, Z):").upper()
     c_type = st.selectbox("Rule Type:", ["PDF Row Item", "Table Row Item", "Constant Text", "Excel Cell Reference", "Smart Detection", "Header Field Mapping"])
-    c_rule = st.text_input("Rule Detail / Value (उदा: B19, SET, PCS, Numbers Only):")
+    c_rule = st.text_input("Rule Detail / Value (उदा: B19, SET, PCS):")
     
     doc_source_item = st.selectbox(
         "यह आइटम डेटा किस डॉक्यूमेंट से लिया जाएगा?",
@@ -142,22 +89,18 @@ def add_item_col_dialog(selected_shipper):
                 "rule": c_rule,
                 "logic": doc_source_item
             }
-            st.success(f"🎉 कॉलम '{c_name}' ({doc_source_item}) जुड़ गया!")
+            st.success(f"🎉 कॉलम '{c_name}' जुड़ गया!")
             st.rerun()
 
 def render_shipper_data():
-    if "sheet_data_loaded" not in st.session_state:
-        fetch_data_from_google_sheet(show_toast=False)
-        st.session_state["sheet_data_loaded"] = True
+    ensure_default_shipper()
     
-    st.header("🏢 Add Shipper Name & Live-Test AI Mapping Builder")
-    st.caption("सटीक डेटा एक्सट्रैक्शन और रो-बाय-रो लाइव टेस्ट इंजन.")
+    st.header("🏢 Header & Item Mapping Rules Builder")
+    st.caption("अपने शिपर के अनुसार रूल्स सेट करें और लाइव टेस्ट करें।")
     
+    # नया शिपर जोड़ने के लिए साधारण इनपुट बॉक्स
     with st.expander("➕ Add New Shipper (नया शिपर जोड़ें)", expanded=False):
         new_shipper_name = st.text_input("नया शिपर कंपनी का नाम दर्ज करें:", key="input_new_shipper_name")
-        
-        available_parsers = ["parser_welspun", "parser_bkt", "parser_polycab", "parser_vapi_welspun"]
-        selected_parser_rule = st.selectbox("इस शिपर के लिए पार्सर रूल (Parser File) चुनें:", available_parsers, key="input_new_shipper_parser")
         
         if st.button("Create New Shipper Profile", type="primary", key="btn_create_shipper"):
             if not new_shipper_name.strip():
@@ -166,15 +109,10 @@ def render_shipper_data():
                 s_clean = new_shipper_name.strip()
                 if s_clean not in st.session_state["shipper_database"]:
                     st.session_state["shipper_database"][s_clean] = {
-                        "allowed_uploads": ["Full Job Excel Format File"],
-                        "uploaded_files": {},
                         "mapping_rules": {},
-                        "item_table_rules": {},
-                        "item_table_rule_name": selected_parser_rule,
-                        "target_sheet_link": "",
-                        "target_tab_name": "Sheet1"
+                        "item_table_rules": {}
                     }
-                    st.success(f"🎉 नया शिपर '{s_clean}' और पार्सर '{selected_parser_rule}' सफलतापूर्वक जुड़ गया है! अब नीचे से कॉन्फ़िगर करें.")
+                    st.success(f"🎉 नया शिपर '{s_clean}' सफलतापूर्वक जुड़ गया है!")
                     st.rerun()
                 else:
                     st.warning("⚠️ यह शिपर पहले से मौजूद है!")
@@ -190,82 +128,11 @@ def render_shipper_data():
         )
         
         if selected_shipper:
-            st.write(f"### ⚙️ प्रोफाइल सेटअप और रूल्स: **{selected_shipper}**")
+            st.write(f"### ⚙️ रूल्स कॉन्फ़िगरेशन: **{selected_shipper}**")
             shipper_info = st.session_state["shipper_database"][selected_shipper]
-            
-            current_assigned_parser = shipper_info.get("item_table_rule_name", "parser_welspun")
-            available_parsers = ["parser_welspun", "parser_bkt", "parser_polycab", "parser_vapi_welspun"]
-            p_idx = available_parsers.index(current_assigned_parser) if current_assigned_parser in available_parsers else 0
-            
-            updated_parser_choice = st.selectbox("📌 इस शिपर के लिए एक्टिव पार्सर रूल (Parser File):", available_parsers, index=p_idx, key=f"sel_parser_{selected_shipper}")
-            shipper_info["item_table_rule_name"] = updated_parser_choice
-
-            st.markdown("#### ☁️ Target Google Sheet Destination Config")
-            col_gs1, col_gs2 = st.columns(2)
-            with col_gs1:
-                target_sheet_link = st.text_input(
-                    "Target Google Sheet Link / ID:",
-                    value=shipper_info.get("target_sheet_link", ""),
-                    key=f"target_sheet_link_{selected_shipper}",
-                    placeholder="यहाँ गूगल शीट की लिंक या ID दर्ज करें"
-                )
-            with col_gs2:
-                target_tab_name = st.text_input(
-                    "Target Tab / Sheet Name:",
-                    value=shipper_info.get("target_tab_name", "Sheet1"),
-                    key=f"target_tab_name_{selected_shipper}",
-                    placeholder="उदा: INV या Sheet1"
-                )
-            
-            shipper_info["target_sheet_link"] = target_sheet_link
-            shipper_info["target_tab_name"] = target_tab_name
 
             st.write("---")
-            st.subheader("📁 1. टेम्पलेट फ़ाइल अपलोड (अलग बटन)")
-            
-            has_file = "Full Job Excel Format File" in shipper_info.get("uploaded_files", {}) and len(shipper_info["uploaded_files"]["Full Job Excel Format File"]) > 0
-            
-            if has_file:
-                st.success("✅ Blank Full Job Excel Format File अपलोडेड एवं सुरक्षित है.")
-                col_del, col_rep = st.columns([2, 8])
-                with col_del:
-                    if st.button("🗑️ Delete Template", key=f"del_tpl_{selected_shipper}"):
-                        shipper_info["uploaded_files"]["Full Job Excel Format File"] = b""
-                        push_template_file_to_sheet(selected_shipper, b"")
-                        st.rerun()
-                with col_rep:
-                    if "show_uploader" not in st.session_state:
-                        st.session_state["show_uploader"] = False
-                    if not st.session_state["show_uploader"]:
-                        if st.button("🔄 Replace Template", key=f"btn_rep_toggle_{selected_shipper}"):
-                            st.session_state["show_uploader"] = True
-                            st.rerun()
-            
-            if not has_file or st.session_state.get("show_uploader", False):
-                if has_file:
-                    st.info("ℹ️ नई फाइल चुनकर नीचे दिए गए बटन से पुरानी फाइल को बदलें:")
-                
-                f_upload = st.file_uploader("➡️ नई Blank Full Job Excel Format File (Template) चुनें", type=["xlsx", "xls"], key=f"tpl_{selected_shipper}")
-                
-                if f_upload is not None:
-                    file_bytes = f_upload.getvalue()
-                    if st.button("🚀 Upload & Overwrite Template in Google Sheet", type="primary", use_container_width=True, key=f"btn_upload_tpl_{selected_shipper}"):
-                        shipper_info.setdefault("uploaded_files", {})["Full Job Excel Format File"] = file_bytes
-                        with st.spinner("⏳ बड़ी टेम्पलेट फाइल टुकड़ों में गूगल शीट पर अपलोड हो रही है..."):
-                            success = push_template_file_to_sheet(selected_shipper, file_bytes)
-                            if success:
-                                st.session_state["show_uploader"] = False
-                                fetch_cached_sheet_data.clear()
-                                st.success("🎉 टेम्पलेट फाइल सफलतापर्वक अपडेट हो गई!")
-                                st.balloons()
-                                st.rerun()
-                            else:
-                                st.error("❌ टेम्पलेट अपलोड करने में एरर आया!")
-                    
-            st.write("---")
-            
-            st.subheader("🧪 2. Instant PDF Upload & Live Data Test Engine")
-            st.caption("यहाँ टेस्ट इनवॉइस PDF अपलोड करें, फिर रूल्स के सामने ⚡ Test दबाकर पॉप-अप में लाइव डेटा देखें.")
+            st.subheader("🧪 Instant PDF Upload & Live Data Test Engine")
             
             test_pdf = st.file_uploader("➡️ टेस्ट करने के लिए इनवॉइस PDF अपलोड करें", type=["pdf"], key=f"test_pdf_{selected_shipper}")
             
@@ -273,7 +140,6 @@ def render_shipper_data():
             pdf_text = ""
             if test_pdf:
                 st.session_state["cached_pdf_bytes"] = test_pdf.getvalue()
-                
                 with pdfplumber.open(test_pdf) as pdf:
                     for page in pdf.pages:
                         t = page.extract_text()
@@ -286,46 +152,12 @@ def render_shipper_data():
 
             st.write("---")
             
-            col_title, col_sync, col_add_h, col_import = st.columns([3.5, 2.5, 2, 2])
+            col_title, col_add_h = st.columns([8, 2])
             with col_title:
                 st.subheader("🛠️ 3. Header Fields Mapping Rules")
-            with col_sync:
-                if st.button("🔄 Reload Saved Rules", type="secondary", use_container_width=True):
-                    with st.spinner("⏳ गूगल शीट से रूल्स लोड हो रहे हैं..."):
-                        fetch_cached_sheet_data.clear()
-                        st.session_state["sheet_data_loaded"] = False
-                        st.session_state["shipper_database"] = {}
-                        fetch_data_from_google_sheet(show_toast=True)
-                    st.rerun()
             with col_add_h:
                 if st.button("➕ Add Field", type="secondary", use_container_width=True):
                     add_custom_header_field_dialog(selected_shipper)
-            with col_import:
-                if st.button("📥 Import Master", type="primary", use_container_width=True, help="ग्लोबल मास्टर से डिफ़ॉल्ट रूल्स यहाँ इम्पोर्ट करें"):
-                    master_tpl = st.session_state.get("master_rules_template", {})
-                    if master_tpl:
-                        imported_rules = {}
-                        for m_key, m_val in master_tpl.items():
-                            imported_rules[m_key] = {
-                                "keyword": m_val.get("keyword", ""),
-                                "position": m_val.get("position", "Right (आगे)"),
-                                "cell": m_val.get("cell", ""),
-                                "match_mode": m_val.get("match_mode", "Exact Word"),
-                                "stop_kw": m_val.get("stop_kw", ""),
-                                "filter": m_val.get("filter", "None"),
-                                "logic": "Main Invoice",
-                                "fallback": ""
-                            }
-                        shipper_info["mapping_rules"] = imported_rules
-                        
-                        g_items = st.session_state.get("global_item_rules", {})
-                        if g_items:
-                            shipper_info["item_table_rules"] = dict(g_items)
-                            
-                        st.success("🎉 ग्लोबल मास्टर से फॉर्मेट सफलतापूर्वक इम्पोर्ट हो गया!")
-                        st.rerun()
-                    else:
-                        st.warning("⚠️ ग्लोबल मास्टर टेम्पलेट खाली है!")
             
             current_rules = shipper_info.get("mapping_rules", {})
             updated_rules = {}
@@ -383,8 +215,6 @@ def render_shipper_data():
                 mode_idx = mode_options.index(saved_mode) if saved_mode in mode_options else 0
                 
                 saved_flt = s_val.get("filter", "None")
-                if saved_flt in ["Inside Parentheses ()", "Text Inside ()"]:
-                    saved_flt = "Text Inside Parentheses ()"
                 flt_idx = filter_options.index(saved_flt) if saved_flt in filter_options else 0
                 
                 saved_logic = s_val.get("logic", "Main Invoice")
@@ -400,23 +230,21 @@ def render_shipper_data():
                 with c8: final_logic = st.selectbox(f"logic_{field}", doc_source_options, index=logic_idx, label_visibility="collapsed") 
                 with c9: fb_val = st.text_input(f"fb_{field}", value=s_val.get("fallback", ""), label_visibility="collapsed", placeholder="अगर ब्लैंक हो")
                 with c10:
-                    if st.button("🗑️", key=f"del_h_{field}"):
-                        del st.session_state["shipper_database"][selected_shipper]["mapping_rules"][field]
+                    if st.button("🗑️", key=f"del_h_{selected_shipper}_{field}"):
+                        del shipper_info["mapping_rules"][field]
                         st.rerun()
                 with c11:
-                    if st.button("⚡ Test", key=f"test_btn_{field}"):
+                    if st.button("⚡ Test", key=f"test_btn_{selected_shipper}_{field}"):
                         if not curr_pdf_lines:
-                            st.toast("⚠️ पहले Section 2 में PDF अपलोड करें!")
+                            st.toast("⚠️ पहले ऊपर PDF अपलोड करें!")
                         else:
                             pdf_bytes = st.session_state.get("cached_pdf_bytes", None)
                             res_val = extract_header_value(
                                 curr_pdf_lines, curr_pdf_text, ky, pos, m_mode, 
                                 stop_kw, final_flt, field_label=edited_name, pdf_bytes=pdf_bytes
                             )
-                            
                             if not res_val or not res_val.strip():
                                 res_val = fb_val
-                            
                             rule_summary = {
                                 "keyword": ky, "position": pos, "cell": cl,
                                 "match_mode": m_mode, "stop_kw": stop_kw, "filter": final_flt, "logic": final_logic
@@ -476,7 +304,7 @@ def render_shipper_data():
                 with ic5: e_ilogic = st.selectbox(f"ilogic_{item_field}", doc_source_options, index=item_logic_idx, label_visibility="collapsed") 
                 
                 with ic6:
-                    if st.button("🗑️", key=f"idel_{item_field}"):
+                    if st.button("🗑️", key=f"idel_{selected_shipper}_{item_field}"):
                         del item_rules[item_field]
                         st.rerun()
                         
@@ -488,27 +316,3 @@ def render_shipper_data():
                 }
                 
             shipper_info["item_table_rules"] = updated_item_rules
-            st.write("---")
-            
-            if st.button("💾 Save Rules Only to Google Sheet", type="primary", use_container_width=True, key="btn_save_rules_sheet"):
-                shippers_payload = {}
-                for s_name, s_data in st.session_state["shipper_database"].items():
-                    shippers_payload[s_name] = {
-                        "mapping_rules": s_data.get("mapping_rules", {}),
-                        "item_table_rules": s_data.get("item_table_rules", {}),
-                        "item_table_rule_name": s_data.get("item_table_rule_name", "parser_welspun"),
-                        "target_sheet_link": s_data.get("target_sheet_link", ""),
-                        "target_tab_name": s_data.get("target_tab_name", "Sheet1")
-                    }
-                
-                with st.spinner("⏳ गूगल शीट में केवल रूल्स सेव हो रहे हैं..."):
-                    success = push_rules_to_sheet(shippers_payload)
-                    if success:
-                        fetch_cached_sheet_data.clear()
-                        st.session_state["sheet_data_loaded"] = False
-                        st.success("🎉 सफलता! आपके सारे रूल्स 'Shipper_JSON_Database' में सुरक्षित सेव हो गए हैं!")
-                        st.balloons()
-                    else:
-                        st.error("❌ रूल्स सेव करते समय एरर आया!")
-
-            render_universal_test_suite(selected_shipper)
