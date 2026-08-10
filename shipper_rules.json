@@ -4,7 +4,7 @@
             "FINAL DESTINATION": {
                 "keyword": "Port of discharge",
                 "position": "Below (\u0928\u0940\u091a\u0947)",
-                "cell": "",
+                "cell": "C",
                 "match_mode": "Exact Word",
                 "stop_kw": "",
                 "filter": "None",
@@ -13,7 +13,7 @@
             "CONTAIENR NO.": {
                 "keyword": "CONTAINER NO:",
                 "position": "Right (\u0906\u0917\u0947)",
-                "cell": "",
+                "cell": "L",
                 "match_mode": "Exact Word",
                 "stop_kw": "",
                 "filter": "None",
