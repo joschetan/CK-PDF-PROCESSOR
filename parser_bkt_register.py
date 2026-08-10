@@ -13,7 +13,7 @@ def extract_bkt_items(pdf_lines, pdf_text=""):
     total_net = ""
     hs_codes_list = []
     
-    # 1. सभी HS Codes ढूंढना
+    # 1. सभी HS Codes ढूंढना (यूनिक और बिना डुप्लीकेट के)
     hs_matches = re.findall(r'(?:HS\s*CODE[#\d\s:]*|CODE[#\s:]*)(\d{8})', pdf_text, re.IGNORECASE)
     if not hs_matches:
         hs_matches = re.findall(r'\b(40\d{6})\b', pdf_text)
@@ -51,17 +51,17 @@ def extract_bkt_items(pdf_lines, pdf_text=""):
             total_qty = qty_match.group(1)
 
     extracted_items.append({
-        "qty": total_qty if total_qty else "0",
-        "net_weight": total_net,
-        "gross_weight": total_gross,
+        "qty": int(total_qty) if total_qty and total_qty.isdigit() else 1,
+        "net_weight": float(total_net) if total_net else 0.0,
+        "gross_weight": float(total_gross) if total_gross else 0.0,
         "hs_code": combined_hscodes
     })
         
     if not extracted_items:
         extracted_items.append({
-            "qty": "1",
-            "net_weight": "0",
-            "gross_weight": "0",
+            "qty": 1,
+            "net_weight": 0.0,
+            "gross_weight": 0.0,
             "hs_code": ""
         })
         
@@ -74,12 +74,13 @@ def map_items_to_excel_dynamic(
     pdf_text="", lut_kws="", paid_kws="", parser_rule="parser_bkt_register"
 ):
     """
-    यूजर द्वारा बनाए गए आइटम टेबल कॉलम रूल्स (Item Field Name) के अनुसार 
-    सटीक Excel Col पर सही डेटा मैप करता है।
+    मल्टीपल PDF प्रोसेसिंग के बाद Container Number (Col L) के आधार पर 
+    समान पंक्तियों को मर्ज करता है, कॉमा से वैल्यू जोड़ता है और N, O, P का टोटल करता है।
     """
     current_excel_row = start_excel_row
     overall_sr = start_overall_sr
 
+    # 1. पहले इस रन के सारे आइटम्स को शीट पर लिख लें
     for item in parsed_items:
         for heading_name, rule_info in resolved_item_rules.items():
             col_letter = rule_info.get("col", "A").upper()
@@ -93,17 +94,103 @@ def map_items_to_excel_dynamic(
             if rule_type == "Constant Text":
                 ws[cell_ref] = rule_val
             elif "NET" in h_upper or "NET" in r_upper:
-                ws[cell_ref] = item.get("net_weight", "")
+                ws[cell_ref] = float(item.get("net_weight", 0.0))
             elif "GROSS" in h_upper or "GROSS" in r_upper:
-                ws[cell_ref] = item.get("gross_weight", "")
+                ws[cell_ref] = float(item.get("gross_weight", 0.0))
             elif "QTY" in h_upper or "QUANTITY" in h_upper or "QTY" in r_upper or "QUANTITY" in r_upper or "PACKAGES" in h_upper:
-                ws[cell_ref] = item.get("qty", "")
+                ws[cell_ref] = int(item.get("qty", 0))
             elif "HS" in h_upper or "CODE" in h_upper or "HS" in r_upper or "CODE" in r_upper:
                 ws[cell_ref] = item.get("hs_code", "")
             else:
-                ws[cell_ref] = item.get("qty", "")
+                ws[cell_ref] = item.get("qty", 0)
                 
         current_excel_row += 1
         overall_sr += 1
+
+    # 2. ⚡ मर्जिंग और कंबाइनिंग लॉजिक (Column L के आधार पर)
+    # हम Row 2 से लेकर आखिरी भरी हुई रो तक को स्कैन करेंगे
+    max_r = ws.max_row
+    if max_r > 2:
+        row_map = {} # { container_no: [row_numbers] }
+        
+        for r in range(2, max_r + 1):
+            cont_val = str(ws[f"L{r}"].value or "").strip()
+            if cont_val:
+                row_map.setdefault(cont_val, []).append(r)
+        
+        rows_to_delete = set()
+        
+        for cont, r_list in row_map.items():
+            if len(r_list) > 1:
+                primary_r = r_list[0] # पहली रो को मुख्य मानेंगे
+                
+                # कंबाइन करने के लिए लिस्ट तैयार करना
+                h_vals, i_vals, w_vals = [], [], []
+                tot_net, tot_gross, tot_qty = 0.0, 0.0, 0
+                
+                for r in r_list:
+                    # Column H, I, W वैल्यूज़ कलेक्ट करना
+                    val_h = str(ws[f"H{r}"].value or "").strip()
+                    val_i = str(ws[f"I{r}"].value or "").strip()
+                    val_w = str(ws[f"W{r}"].value or "").strip()
+                    
+                    if val_h and val_h not in h_vals: h_vals.append(val_h)
+                    if val_i and val_i not in i_vals: i_vals.append(val_i)
+                    
+                    # HS Codes को अलग करके यूनिक रखना
+                    if val_w:
+                        for code in val_w.split(","):
+                            c_clean = code.strip()
+                            if c_clean and c_clean not in w_vals:
+                                w_vals.append(c_clean)
+                                
+                    # N, O, P का टोटल जोड़ना
+                    try: tot_net += float(ws[f"N{r}"].value or 0)
+                    except: pass
+                    
+                    try: tot_gross += float(ws[f"O{r}"].value or 0)
+                    except: pass
+                    
+                    try: tot_qty += int(ws[f"P{r}"].value or 0)
+                    except: pass
+                
+                # Primary Row पर मर्ज किया हुआ डेटा सेट करना
+                ws[f"H{primary_r}"] = ", ".join(h_vals)
+                ws[f"I{primary_r}"] = ", ".join(i_vals)
+                ws[f"W{primary_r}"] = ", ".join(w_vals)
+                
+                ws[f"N{primary_r}"] = round(tot_net, 3)
+                ws[f"O{primary_r}"] = round(tot_gross, 3)
+                ws[f"P{primary_r}"] = int(tot_qty)
+                
+                # बाकी डुप्लीकेट रो को डिलीट करने के लिए मार्क करना
+                for r in r_list[1:]:
+                    rows_to_delete.add(r)
+        
+        # बची हुई या डिलीट होने वाली पंक्तियों को छोड़कर नई साफ़ लिस्ट बनाना
+        if rows_to_delete:
+            all_data = []
+            headers = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
+            
+            for r in range(2, ws.max_row + 1):
+                if r not in rows_to_delete:
+                    row_vals = [ws.cell(row=r, column=c).value for c in range(1, ws.max_column + 1)]
+                    if any(row_vals):
+                        all_data.append(row_vals)
+            
+            # पुरानी टेबल साफ़ करें
+            for r in range(2, ws.max_row + 1):
+                for c in range(1, ws.max_column + 1):
+                    ws.cell(row=r, column=c).value = None
+            
+            # अपडेटेड डेटा दोबारा लिखें
+            write_r = 2
+            for r_data in all_data:
+                for c_idx, val in enumerate(r_data, start=1):
+                    ws.cell(row=write_r, column=c_idx, value=val)
+                write_r += 1
+                
+            current_excel_row = write_r
+            overall_sr = start_overall_sr + len(all_data)
 
     return ws, overall_sr, current_excel_row
