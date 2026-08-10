@@ -9,9 +9,24 @@
                 "stop_kw": "",
                 "filter": "None",
                 "fallback": ""
+            },
+            "CONTAIENR NO.": {
+                "keyword": "CONTAINER NO:",
+                "position": "Right (\u0906\u0917\u0947)",
+                "cell": "",
+                "match_mode": "Exact Word",
+                "stop_kw": "",
+                "filter": "None",
+                "fallback": ""
             }
         },
-        "item_table_rules": {},
+        "item_table_rules": {
+            "Other reference(s)": {
+                "col": "I",
+                "type": "PDF Row Item",
+                "rule": "Other reference(s)"
+            }
+        },
         "item_table_rule_name": "parser_bkt_register",
         "target_sheet_link": "",
         "target_tab_name": "Sheet1"
