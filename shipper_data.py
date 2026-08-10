@@ -4,10 +4,49 @@ import re
 from io import BytesIO
 
 from pdf_engine import extract_header_value
+from github_sync import fetch_rules_from_github, push_rules_to_github
 
 def ensure_default_shipper():
     if "shipper_database" not in st.session_state:
         st.session_state["shipper_database"] = {}
+
+@st.cache_data(show_spinner=False)
+def fetch_cached_github_data():
+    return fetch_rules_from_github()
+
+def fetch_data_from_github(show_toast=False):
+    ensure_default_shipper()
+    try:
+        data = fetch_cached_github_data()
+        if not data:
+            if show_toast: st.error("⚠️ GitHub से रूल्स डेटा नहीं मिला.")
+            return
+
+        shippers_dict = data.get("shippers", {})
+        if not shippers_dict and isinstance(data, dict):
+            shippers_dict = data
+        
+        for s_name, s_data in shippers_dict.items():
+            if not s_name or s_name == "error":
+                continue
+                
+            if s_name not in st.session_state["shipper_database"]:
+                st.session_state["shipper_database"][s_name] = {
+                    "mapping_rules": {},
+                    "item_table_rules": {},
+                    "item_table_rule_name": "parser_bkt_register"
+                }
+            
+            shipper_info = st.session_state["shipper_database"][s_name]
+            
+            if isinstance(s_data, dict):
+                shipper_info["mapping_rules"] = s_data.get("mapping_rules", {})
+                shipper_info["item_table_rules"] = s_data.get("item_table_rules", {})
+                shipper_info["item_table_rule_name"] = s_data.get("item_table_rule_name", "parser_bkt_register")
+
+        if show_toast: st.toast("✅ GitHub से सभी रूल्स लोड हो गए!")
+    except Exception as e:
+        if show_toast: st.error(f"फ़ैच एरर: {str(e)}")
 
 @st.dialog("🧪 Live Extraction Field Test Result")
 def show_field_test_dialog(field_name, rule_data, result_val):
@@ -79,6 +118,10 @@ def add_item_col_dialog(selected_shipper):
             st.rerun()
 
 def render_shipper_data():
+    if "github_data_loaded" not in st.session_state:
+        fetch_data_from_github(show_toast=False)
+        st.session_state["github_data_loaded"] = True
+    
     ensure_default_shipper()
     
     st.header("🏢 Header & Item Mapping Rules Builder")
@@ -87,7 +130,6 @@ def render_shipper_data():
     with st.expander("➕ Add New Shipper (नया शिपर जोड़ें)", expanded=False):
         new_shipper_name = st.text_input("नया शिपर कंपनी का नाम दर्ज करें:", key="input_new_shipper_name")
         
-        # 📌 यहाँ 'parser_bkt_register' विकल्प के रूप में उपलब्ध है
         available_parsers = ["parser_bkt_register"]
         selected_parser_rule = st.selectbox("इस शिपर के लिए पार्सर चुनें:", available_parsers, key="input_new_shipper_parser")
         
@@ -102,7 +144,7 @@ def render_shipper_data():
                         "item_table_rules": {},
                         "item_table_rule_name": selected_parser_rule
                     }
-                    st.success(f"🎉 नया शिपर '{s_clean}' और पार्सर '{selected_parser_rule}' सफलतापूर्वक जुड़ गया है!")
+                    st.success(f"🎉 नया शिपर '{s_clean}' सफलतापूर्वक जुड़ गया है!")
                     st.rerun()
                 else:
                     st.warning("⚠️ यह शिपर पहले से मौजूद है!")
@@ -121,9 +163,8 @@ def render_shipper_data():
             st.write(f"### ⚙️ रूल्स कॉन्फ़िगरेशन: **{selected_shipper}**")
             shipper_info = st.session_state["shipper_database"][selected_shipper]
             
-            # 📌 यहाँ से एक्टिव पार्सर बदलने का ड्रॉपडाउन भी वापस आ गया है
             current_assigned_parser = shipper_info.get("item_table_rule_name", "parser_bkt_register")
-            available_parsers = ["parser_bkt_register"] # भविष्य में नए पार्सर यहाँ जोड़े जा सकेंगे
+            available_parsers = ["parser_bkt_register"]
             p_idx = available_parsers.index(current_assigned_parser) if current_assigned_parser in available_parsers else 0
             
             updated_parser_choice = st.selectbox("📌 इस शिपर के लिए एक्टिव पार्सर रूल (Parser File):", available_parsers, index=p_idx, key=f"sel_parser_{selected_shipper}")
@@ -150,11 +191,19 @@ def render_shipper_data():
 
             st.write("---")
             
-            col_title, col_add_h = st.columns([8, 2])
+            # 📌 यहाँ Reload और Add Field दोनों बटन वापस जोड़ दिए गए हैं
+            col_title, col_sync, col_add_h = st.columns([4.5, 3.0, 2.5])
             with col_title:
                 st.subheader("🛠️ 3. Header Fields Mapping Rules")
+            with col_sync:
+                if st.button("🔄 Reload from GitHub", type="secondary", use_container_width=True):
+                    fetch_cached_github_data.clear()
+                    st.session_state["github_data_loaded"] = False
+                    st.session_state["shipper_database"] = {}
+                    fetch_data_from_github(show_toast=True)
+                    st.rerun()
             with col_add_h:
-                if st.button("➕ Add Field", type="secondary", use_container_width=True):
+                if st.button("➕ Add Field", type="primary", use_container_width=True):
                     add_custom_header_field_dialog(selected_shipper)
             
             current_rules = shipper_info.get("mapping_rules", {})
@@ -300,3 +349,24 @@ def render_shipper_data():
                 }
                 
             shipper_info["item_table_rules"] = updated_item_rules
+
+            st.write("---")
+            # 📌 नीचे 'Save Rules to GitHub JSON' बटन भी वापस जोड़ दिया गया है
+            if st.button("💾 Save Rules to GitHub JSON", type="primary", use_container_width=True, key="btn_save_rules_github"):
+                shippers_payload = {}
+                for s_name, s_data in st.session_state["shipper_database"].items():
+                    shippers_payload[s_name] = {
+                        "mapping_rules": s_data.get("mapping_rules", {}),
+                        "item_table_rules": s_data.get("item_table_rules", {}),
+                        "item_table_rule_name": s_data.get("item_table_rule_name", "parser_bkt_register")
+                    }
+                
+                with st.spinner("⏳ GitHub JSON पर रूल्स सेव हो रहे हैं..."):
+                    success = push_rules_to_github(shippers_payload)
+                    if success:
+                        fetch_cached_github_data.clear()
+                        st.session_state["github_data_loaded"] = False
+                        st.success("🎉 सफलता! आपके सारे रूल्स GitHub पर सुरक्षित सेव हो गए हैं!")
+                        st.balloons()
+                    else:
+                        st.error("❌ GitHub पर रूल्स सेव करते समय एरर आया!")
