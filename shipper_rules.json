@@ -1,23 +1,12 @@
 {
-    "WELSPUN GLOBAL BRANDS LIMITED": {
-        "mapping_rules": {},
-        "item_table_rules": {},
-        "item_table_rule_name": "parser_bkt_register",
-        "target_sheet_link": "",
-        "target_tab_name": "Sheet1"
-    },
     "BKT MUNDRA JOB REGISTER": {
         "mapping_rules": {
             "FINAL DESTINATION": {
                 "keyword": "Port of discharge",
-                "position": "Below (\u0928\u0940\u091a\u0947)",
+                "position": "Below (नीचे)",
                 "match_mode": "Exact Word",
                 "filter": "None"
             }
         },
-        "item_table_rules": {},
-        "item_table_rule_name": "parser_sample",
-        "target_sheet_link": "",
-        "target_tab_name": "Sheet1"
-    }
+      
 }
