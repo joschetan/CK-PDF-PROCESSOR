@@ -104,17 +104,36 @@ def render_processor():
                     target_sheet_link = shipper_info.get("target_sheet_link", "")
                     target_tab_name = shipper_info.get("target_tab_name", "Sheet1")
                     
+                    wb = openpyxl.Workbook()
+                    ws = wb.active
+                    ws.title = "INV"
+                    
                     if excel_template:
                         wb = openpyxl.load_workbook(excel_template)
                         ws = wb["INV"] if "INV" in wb.sheetnames else wb.active
-                        excel_write_row = ws.max_row + 1
+                        
+                        # सटीक अंतिम भरी हुई रो ढूँढना (जैसे स्क्रीनशॉट में 14)
+                        last_filled_row = 0
+                        for r in range(ws.max_row, 0, -1):
+                            if any(ws.cell(row=r, column=c).value is not None for c in range(1, ws.max_column + 1)):
+                                last_filled_row = r
+                                break
+                        excel_write_row = last_filled_row + 1 if last_filled_row > 0 else 2
                     else:
-                        wb = openpyxl.Workbook()
-                        ws = wb["INV"] if "INV" in wb.sheetnames else wb.active
+                        # बिना टेम्पलेट के: Row 1 में हेडिंग्स लिखें
                         excel_write_row = 2
+                        col_idx = 1
+                        for field_name in rules.keys():
+                            ws.cell(row=1, column=col_idx, value=field_name)
+                            col_idx += 1
+                        # डिफ़ॉल्ट सिस्टम कॉलम हेडिंग्स
+                        ws.cell(row=1, column=col_idx, value="SR NO")
+                        ws.cell(row=1, column=col_idx+1, value="INVOICE NO")
+                        ws.cell(row=1, column=col_idx+2, value="INVOICE DATE")
                     
                     first_inv_no = "INV"
                     overall_item_sr = 1
+                    current_excel_row = excel_write_row
                     
                     for inv_idx, inv_file in enumerate(uploaded_pdfs):
                         pdf_text = ""
@@ -132,9 +151,10 @@ def render_processor():
                         
                         current_inv_number = f"INV_{inv_idx+1}"
                         current_inv_date = ""
-                        inv_data_dict = {}
-                        summary_row = excel_write_row + inv_idx
+                        summary_row = current_excel_row
                         
+                        # हेडर फील्ड्स मैपिंग और वैल्यू एक्सट्रैक्शन
+                        field_col_counter = 1
                         for field, r_info in rules.items():
                             kw = r_info.get("keyword", "").strip()
                             if kw.startswith("'") and len(kw) > 1:
@@ -153,8 +173,7 @@ def render_processor():
                                 if fallback_val:
                                     found_val = fallback_val
                                     
-                            inv_data_dict[field.lower()] = found_val
-                            
+                            # यदि यूजर ने सेल लेटर (जैसे C, L) दिया है तो वहाँ लिखें, अन्यथा बिना टेम्पलेट के सीक्वेसल कॉलम में लिखें
                             if target_cell and "dynamic" not in target_cell.lower():
                                 try:
                                     if target_cell.isalpha():
@@ -164,6 +183,10 @@ def render_processor():
                                     ws[cell_to_write] = found_val
                                 except Exception:
                                     pass
+                            elif not excel_template:
+                                ws.cell(row=summary_row, column=field_col_counter, value=found_val)
+                            
+                            field_col_counter += 1
                             
                             if "inv. no" in field.lower() or "invoice no" in field.lower():
                                 if found_val:
@@ -177,10 +200,17 @@ def render_processor():
                                 elif found_val and not found_val.lower().startswith("inv"):
                                     current_inv_date = found_val
 
-                        ws[f"AH{summary_row}"] = inv_idx + 1
-                        ws[f"AI{summary_row}"] = current_inv_number
-                        if current_inv_date:
-                            ws[f"AJ{summary_row}"] = current_inv_date
+                        # डिफ़ॉल्ट ट्रेलिंग डेटा (SR NO, Invoice No, Date)
+                        if not excel_template:
+                            ws.cell(row=summary_row, column=field_col_counter, value=inv_idx + 1)
+                            ws.cell(row=summary_row, column=field_col_counter+1, value=current_inv_number)
+                            if current_inv_date:
+                                ws.cell(row=summary_row, column=field_col_counter+2, value=current_inv_date)
+                        else:
+                            ws[f"AH{summary_row}"] = inv_idx + 1
+                            ws[f"AI{summary_row}"] = current_inv_number
+                            if current_inv_date:
+                                ws[f"AJ{summary_row}"] = current_inv_date
 
                         resolved_item_rules = {}
                         for i_name, i_info in item_table_rules.items():
@@ -189,12 +219,13 @@ def render_processor():
                             i_col = i_info.get("col", "K")
                             resolved_item_rules[i_name] = {"col": i_col, "type": i_type, "rule": i_rule}
 
+                        # पार्सर के माध्यम से आइटम्स प्रोसेस करना और अगली रो अपडेट करना
                         parsed_items = extract_bkt_items(pdf_lines, pdf_text=pdf_text)
-                        ws, overall_item_sr, excel_write_row = map_bkt(
+                        ws, overall_item_sr, current_excel_row = map_bkt(
                             ws, parsed_items, resolved_item_rules,
                             inv_sr_no=inv_idx+1, 
                             start_overall_sr=overall_item_sr, 
-                            start_excel_row=excel_write_row, 
+                            start_excel_row=summary_row, 
                             default_invoice_no=current_inv_number, 
                             default_invoice_date=current_inv_date,
                             pdf_text=pdf_text,
