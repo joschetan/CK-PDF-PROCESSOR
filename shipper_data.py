@@ -10,20 +10,9 @@ from test_suite import render_universal_test_suite
 from google_sheet_sync import fetch_all_from_sheet, push_rules_to_sheet, push_template_file_to_sheet, get_val_case_insensitive, load_template_bytes_from_sheet
 
 def ensure_default_shipper():
+    # डिफ़ॉल्ट शिपर को हटा दिया गया है, अब यह खाली डिक्शनरी से शुरू होगा
     if "shipper_database" not in st.session_state:
         st.session_state["shipper_database"] = {}
-        
-    s_name = "WELSPUN GLOBAL BRANDS LIMITED"
-    if s_name not in st.session_state["shipper_database"]:
-        st.session_state["shipper_database"][s_name] = {
-            "allowed_uploads": ["Full Job Excel Format File"], 
-            "uploaded_files": {},
-            "mapping_rules": {},
-            "item_table_rules": {},
-            "item_table_rule_name": "parser_welspun",
-            "target_sheet_link": "",
-            "target_tab_name": "Sheet1"
-        }
 
 @st.cache_data(show_spinner=False)
 def fetch_cached_sheet_data():
