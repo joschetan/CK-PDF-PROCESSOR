@@ -1,12 +1,17 @@
 {
-    "BKT MUNDRA JOB REGISTER": {
+    "BKT MUNDRA REGISTER": {
         "mapping_rules": {
             "FINAL DESTINATION": {
                 "keyword": "Port of discharge",
-                "position": "Below (नीचे)",
+                "position": "Below (\u0928\u0940\u091a\u0947)",
+                "cell": "",
                 "match_mode": "Exact Word",
-                "filter": "None"
+                "stop_kw": "",
+                "filter": "None",
+                "fallback": ""
             }
         },
-      
+        "item_table_rules": {},
+        "item_table_rule_name": "parser_bkt_register"
+    }
 }
