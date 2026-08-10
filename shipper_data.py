@@ -87,10 +87,6 @@ def render_shipper_data():
     with st.expander("➕ Add New Shipper (नया शिपर जोड़ें)", expanded=False):
         new_shipper_name = st.text_input("नया शिपर कंपनी का नाम दर्ज करें:", key="input_new_shipper_name")
         
-        # 📌 यहाँ सिर्फ एकमात्र सही पार्सर सेट कर दिया गया है
-        selected_parser_rule = "parser_bkt_register"
-        st.info(f"📌 डिफ़ॉल्ट पार्सर सेट है: **{selected_parser_rule}**")
-        
         if st.button("Create New Shipper Profile", type="primary", key="btn_create_shipper"):
             if not new_shipper_name.strip():
                 st.error("शिपर का नाम खाली नहीं हो सकता!")
@@ -100,7 +96,7 @@ def render_shipper_data():
                     st.session_state["shipper_database"][s_clean] = {
                         "mapping_rules": {},
                         "item_table_rules": {},
-                        "item_table_rule_name": selected_parser_rule
+                        "item_table_rule_name": "parser_bkt_register"
                     }
                     st.success(f"🎉 नया शिपर '{s_clean}' सफलतापूर्वक जुड़ गया है!")
                     st.rerun()
@@ -120,10 +116,7 @@ def render_shipper_data():
         if selected_shipper:
             st.write(f"### ⚙️ रूल्स कॉन्फ़िगरेशन: **{selected_shipper}**")
             shipper_info = st.session_state["shipper_database"][selected_shipper]
-
-            # एक्टिव पार्सर फिक्स कर दिया गया है ताकि ड्रॉपdown की जरूरत न पड़े
             shipper_info["item_table_rule_name"] = "parser_bkt_register"
-            st.success("📌 एक्टिव पार्सर: `parser_bkt_register`")
 
             st.write("---")
             st.subheader("🧪 Instant PDF Upload & Live Data Test Engine")
