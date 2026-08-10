@@ -28,7 +28,7 @@
             },
             "FINAL DESTINATION": {
                 "col": "C",
-                "type": "Header Field Mapping",
+                "type": "PDF Row Item",
                 "rule": "FINAL DESTINATION"
             },
             "CONTAIENR NO.": {
