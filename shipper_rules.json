@@ -92,7 +92,28 @@
                 "fallback": ""
             }
         },
-        "item_table_rules": {},
+        "item_table_rules": {
+            "NET WT": {
+                "col": "N",
+                "type": "PDF Row Item",
+                "rule": "Net Weight"
+            },
+            "GROSS WT": {
+                "col": "O",
+                "type": "PDF Row Item",
+                "rule": "Gross Weight"
+            },
+            "PACKAGES": {
+                "col": "P",
+                "type": "PDF Row Item",
+                "rule": "Quantity"
+            },
+            "HS CODE": {
+                "col": "W",
+                "type": "PDF Row Item",
+                "rule": "HS Code"
+            }
+        },
         "item_table_rule_name": "parser_bkt_register",
         "target_sheet_link": "",
         "target_tab_name": "Sheet1"
