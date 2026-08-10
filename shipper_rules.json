@@ -4,7 +4,7 @@
             "FINAL DESTINATION": {
                 "keyword": "Port of discharge",
                 "position": "Below (\u0928\u0940\u091a\u0947)",
-                "cell": "",
+                "cell": "C",
                 "match_mode": "Exact Word",
                 "stop_kw": "",
                 "filter": "None",
@@ -13,30 +13,23 @@
             "CONTAIENR NO.": {
                 "keyword": "CONTAINER NO:",
                 "position": "Right (\u0906\u0917\u0947)",
-                "cell": "",
+                "cell": "L",
+                "match_mode": "Exact Word",
+                "stop_kw": "",
+                "filter": "None",
+                "fallback": ""
+            },
+            "OTHER REF NO": {
+                "keyword": "Other reference(s)",
+                "position": "Right (\u0906\u0917\u0947)",
+                "cell": "I",
                 "match_mode": "Exact Word",
                 "stop_kw": "",
                 "filter": "None",
                 "fallback": ""
             }
         },
-        "item_table_rules": {
-            "Other reference(s)": {
-                "col": "I",
-                "type": "PDF Row Item",
-                "rule": "Other reference(s)"
-            },
-            "FINAL DESTINATION": {
-                "col": "C",
-                "type": "PDF Row Item",
-                "rule": "FINAL DESTINATION"
-            },
-            "CONTAIENR NO.": {
-                "col": "L",
-                "type": "Header Field Mapping",
-                "rule": "CONTAIENR NO."
-            }
-        },
+        "item_table_rules": {},
         "item_table_rule_name": "parser_bkt_register",
         "target_sheet_link": "",
         "target_tab_name": "Sheet1"
