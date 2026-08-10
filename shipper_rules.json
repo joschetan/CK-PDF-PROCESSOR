@@ -21,10 +21,10 @@
             },
             "OTHER REF NO": {
                 "keyword": "Other reference(s)",
-                "position": "Right (\u0906\u0917\u0947)",
+                "position": "Below (\u0928\u0940\u091a\u0947)",
                 "cell": "I",
-                "match_mode": "Exact Word",
-                "stop_kw": "",
+                "match_mode": "Word Position",
+                "stop_kw": "2",
                 "filter": "None",
                 "fallback": ""
             }
