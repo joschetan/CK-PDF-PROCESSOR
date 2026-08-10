@@ -238,10 +238,20 @@ def render_processor():
             
             if st.session_state.get("processed_file_ready", None):
                 st.write("---")
-                st.download_button(
-                    label=f"📥 Download Excel ({st.session_state['processed_file_ready']['filename']})",
-                    data=st.session_state['processed_file_ready']['data'],
-                    file_name=st.session_state['processed_file_ready']['filename'],
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
+                col_d, col_r = st.columns([3, 1])
+                with col_d:
+                    st.download_button(
+                        label=f"📥 Download Excel ({st.session_state['processed_file_ready']['filename']})",
+                        data=st.session_state['processed_file_ready']['data'],
+                        file_name=st.session_state['processed_file_ready']['filename'],
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+                with col_r:
+                    # 🔄 रीसेट बटन जो सब कुछ साफ़ करके नया डेटा अपलोड करने के लिए पेज तैयार कर देगा
+                    if st.button("🔄 Reset & Upload New", type="secondary", use_container_width=True):
+                        if "processed_file_ready" in st.session_state:
+                            del st.session_state["processed_file_ready"]
+                        if "cached_pdf_bytes" in st.session_state:
+                            del st.session_state["cached_pdf_bytes"]
+                        st.rerun()
