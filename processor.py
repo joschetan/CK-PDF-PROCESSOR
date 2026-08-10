@@ -37,7 +37,6 @@ def send_data_to_target_google_sheet(sheet_link, tab_name, wb):
         return False
 
 def render_processor():
-    # 🚀 ऐप खुलते ही या रिफ्रेश होते ही बिना एडमिन जाए बैकग्राउंड में डेटा लोड हो जाएगा
     if "github_data_loaded" not in st.session_state:
         fetch_data_from_github(show_toast=False)
         st.session_state["github_data_loaded"] = True
@@ -117,7 +116,6 @@ def render_processor():
                         wb = openpyxl.load_workbook(excel_template)
                         ws = wb["INV"] if "INV" in wb.sheetnames else wb.active
                         
-                        # सटीक अंतिम भरी हुई रो ढूँढना (जैसे स्क्रीनशॉट में 14)
                         last_filled_row = 0
                         for r in range(ws.max_row, 0, -1):
                             if any(ws.cell(row=r, column=c).value is not None for c in range(1, ws.max_column + 1)):
@@ -125,16 +123,15 @@ def render_processor():
                                 break
                         excel_write_row = last_filled_row + 1 if last_filled_row > 0 else 2
                     else:
-                        # बिना टेम्पलेट के: Row 1 में हेडिंग्स लिखें
                         excel_write_row = 2
-                        col_idx = 1
-                        for field_name in rules.keys():
-                            ws.cell(row=1, column=col_idx, value=field_name)
-                            col_idx += 1
-                        # डिफ़ॉल्ट सिस्टम कॉलम हेडिंग्स
-                        ws.cell(row=1, column=col_idx, value="SR NO")
-                        ws.cell(row=1, column=col_idx+1, value="INVOICE NO")
-                        ws.cell(row=1, column=col_idx+2, value="INVOICE DATE")
+                        fallback_col_idx = 1
+                        for field_name, r_info in rules.items():
+                            target_cell = r_info.get("cell", "").strip().upper()
+                            if target_cell and target_cell.isalpha():
+                                ws[f"{target_cell}1"] = field_name
+                            else:
+                                ws.cell(row=1, column=fallback_col_idx, value=field_name)
+                                fallback_col_idx += 1
                     
                     first_inv_no = "INV"
                     overall_item_sr = 1
@@ -158,8 +155,7 @@ def render_processor():
                         current_inv_date = ""
                         summary_row = current_excel_row
                         
-                        # हेडर फील्ड्स मैपिंग और वैल्यू एक्सट्रैक्शन
-                        field_col_counter = 1
+                        fallback_col_counter = 1
                         for field, r_info in rules.items():
                             kw = r_info.get("keyword", "").strip()
                             if kw.startswith("'") and len(kw) > 1:
@@ -178,7 +174,6 @@ def render_processor():
                                 if fallback_val:
                                     found_val = fallback_val
                                     
-                            # यदि यूजर ने सेल लेटर (जैसे C, L) दिया है तो वहाँ लिखें, अन्यथा बिना टेम्पलेट के सीक्वेसल कॉलम में लिखें
                             if target_cell and "dynamic" not in target_cell.lower():
                                 try:
                                     if target_cell.isalpha():
@@ -189,9 +184,9 @@ def render_processor():
                                 except Exception:
                                     pass
                             elif not excel_template:
-                                ws.cell(row=summary_row, column=field_col_counter, value=found_val)
+                                ws.cell(row=summary_row, column=fallback_col_counter, value=found_val)
                             
-                            field_col_counter += 1
+                            fallback_col_counter += 1
                             
                             if "inv. no" in field.lower() or "invoice no" in field.lower():
                                 if found_val:
@@ -205,18 +200,6 @@ def render_processor():
                                 elif found_val and not found_val.lower().startswith("inv"):
                                     current_inv_date = found_val
 
-                        # डिफ़ॉल्ट ट्रेलिंग डेटा (SR NO, Invoice No, Date)
-                        if not excel_template:
-                            ws.cell(row=summary_row, column=field_col_counter, value=inv_idx + 1)
-                            ws.cell(row=summary_row, column=field_col_counter+1, value=current_inv_number)
-                            if current_inv_date:
-                                ws.cell(row=summary_row, column=field_col_counter+2, value=current_inv_date)
-                        else:
-                            ws[f"AH{summary_row}"] = inv_idx + 1
-                            ws[f"AI{summary_row}"] = current_inv_number
-                            if current_inv_date:
-                                ws[f"AJ{summary_row}"] = current_inv_date
-
                         resolved_item_rules = {}
                         for i_name, i_info in item_table_rules.items():
                             i_type = i_info.get("type", "")
@@ -224,7 +207,6 @@ def render_processor():
                             i_col = i_info.get("col", "K")
                             resolved_item_rules[i_name] = {"col": i_col, "type": i_type, "rule": i_rule}
 
-                        # पार्सर के माध्यम से आइटम्स प्रोसेस करना और अगली रो अपडेट करना
                         parsed_items = extract_bkt_items(pdf_lines, pdf_text=pdf_text)
                         ws, overall_item_sr, current_excel_row = map_bkt(
                             ws, parsed_items, resolved_item_rules,
