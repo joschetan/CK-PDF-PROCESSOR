@@ -58,7 +58,18 @@ def render_processor():
         )
         
         st.markdown("---")
-        st.subheader("📑 Upload PDF's")
+        
+        # 📌 'Upload PDF's' हेडिंग और 'Reset' बटन को एक ही लाइन में सेट किया गया है
+        col_up_title, col_up_btn = st.columns([7, 3])
+        with col_up_title:
+            st.subheader("📑 Upload PDF's")
+        with col_up_btn:
+            if st.button("🔄 Reset & Clear All", type="secondary", use_container_width=True):
+                # सेशन स्टेट की सभी प्रोसेस फाइलों को साफ़ करके पेज रीफ्रेश करें
+                for key in list(st.session_state.keys()):
+                    if "processed_file_ready" in key or "cached_pdf" in key or "multi_pdf_uploader" in key:
+                        del st.session_state[key]
+                st.rerun()
         
         uploaded_pdfs = st.file_uploader(
             "एक या एक से अधिक स्टैंडर्ड इनवॉइस PDF चुनें", 
@@ -201,19 +212,10 @@ def render_processor():
             
             if st.session_state.get("processed_file_ready", None):
                 st.write("---")
-                col_d, col_r = st.columns([3, 1])
-                with col_d:
-                    st.download_button(
-                        label=f"📥 Download Excel ({st.session_state['processed_file_ready']['filename']})",
-                        data=st.session_state['processed_file_ready']['data'],
-                        file_name=st.session_state['processed_file_ready']['filename'],
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
-                    )
-                with col_r:
-                    if st.button("🔄 Reset & Upload New", type="secondary", use_container_width=True):
-                        if "processed_file_ready" in st.session_state:
-                            del st.session_state["processed_file_ready"]
-                        if "cached_pdf_bytes" in st.session_state:
-                            del st.session_state["cached_pdf_bytes"]
-                        st.toast("✨ सब कुछ साफ़ हो गया है! अब नई PDF अपलोड करें।")
+                st.download_button(
+                    label=f"📥 Download Excel ({st.session_state['processed_file_ready']['filename']})",
+                    data=st.session_state['processed_file_ready']['data'],
+                    file_name=st.session_state['processed_file_ready']['filename'],
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
