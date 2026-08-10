@@ -87,12 +87,9 @@ def render_shipper_data():
     with st.expander("➕ Add New Shipper (नया शिपर जोड़ें)", expanded=False):
         new_shipper_name = st.text_input("नया शिपर कंपनी का नाम दर्ज करें:", key="input_new_shipper_name")
         
-        # 📌 यहाँ पार्सर चुनने का ऑप्शन दिया गया है (welspun या bkt_register)
-        selected_parser_rule = st.selectbox(
-            "इस शिपर के लिए पार्सर चुनें:", 
-            ["parser_sample", "parser_bkt_register"], 
-            key="input_new_shipper_parser"
-        )
+        # 📌 यहाँ सिर्फ एकमात्र सही पार्सर सेट कर दिया गया है
+        selected_parser_rule = "parser_bkt_register"
+        st.info(f"📌 डिफ़ॉल्ट पार्सर सेट है: **{selected_parser_rule}**")
         
         if st.button("Create New Shipper Profile", type="primary", key="btn_create_shipper"):
             if not new_shipper_name.strip():
@@ -124,13 +121,9 @@ def render_shipper_data():
             st.write(f"### ⚙️ रूल्स कॉन्फ़िगरेशन: **{selected_shipper}**")
             shipper_info = st.session_state["shipper_database"][selected_shipper]
 
-            # एक्टिव पार्सर बदलने का ड्रॉपडाउन
-            current_parser = shipper_info.get("item_table_rule_name", "parser_sample")
-            parsers_avail = ["parser_sample", "parser_bkt_register"]
-            p_idx = parsers_avail.index(current_parser) if current_parser in parsers_avail else 0
-            
-            updated_parser = st.selectbox("📌 एक्टिव पार्सर रूल बदलें:", parsers_avail, index=p_idx, key=f"sel_parser_{selected_shipper}")
-            shipper_info["item_table_rule_name"] = updated_parser
+            # एक्टिव पार्सर फिक्स कर दिया गया है ताकि ड्रॉपdown की जरूरत न पड़े
+            shipper_info["item_table_rule_name"] = "parser_bkt_register"
+            st.success("📌 एक्टिव पार्सर: `parser_bkt_register`")
 
             st.write("---")
             st.subheader("🧪 Instant PDF Upload & Live Data Test Engine")
@@ -186,7 +179,6 @@ def render_shipper_data():
                 "Remove All Spaces"
             ]
             
-            # 📌 यहाँ से Source Doc कॉलम हटा दिया गया है
             c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns([1.8, 2.2, 1.3, 0.7, 1.4, 1.2, 1.5, 1.6, 0.6, 0.9])
             with c1: st.markdown("**Field Name**")
             with c2: st.markdown("**Keyword**")
@@ -262,7 +254,6 @@ def render_shipper_data():
             item_rules = shipper_info.get("item_table_rules", {})
             updated_item_rules = {}
             
-            # 📌 यहाँ से भी Source Doc कॉलम हटा दिया गया है
             ic1, ic2, ic3, ic4, ic5 = st.columns([3.0, 1.5, 3.0, 3.0, 0.8])
             with ic1: st.markdown("**Item Field Name**")
             with ic2: st.markdown("**Excel Col**")
