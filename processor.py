@@ -56,7 +56,7 @@ def render_processor():
         st.markdown("---")
         st.subheader("📂 Custom Excel Format / Template (Optional)")
         excel_template = st.file_uploader(
-            "यदि आपके पास कोई अपना फिक्स एक्सेल फॉर्मेट है, तो यहाँ अपलोड करें:", 
+            "यदि कोई अपना फिक्स एक्सेल फॉर्मेट है, तो यहाँ अपलोड करें:", 
             type=["xlsx"], 
             key="processor_excel_template"
         )
@@ -116,6 +116,7 @@ def render_processor():
                         excel_write_row = last_filled_row + 1 if last_filled_row > 0 else 2
                     else:
                         excel_write_row = 2
+                        # 1. हेडर फील्ड्स की हेडिंग उनके तय सेल (या फॉलबैक कॉलम) पर Row 1 में लिखना
                         fallback_col_idx = 1
                         for field_name, r_info in rules.items():
                             target_cell = r_info.get("cell", "").strip().upper()
@@ -124,6 +125,12 @@ def render_processor():
                             else:
                                 ws.cell(row=1, column=fallback_col_idx, value=field_name)
                                 fallback_col_idx += 1
+                        
+                        # 2. आइटम टेबल कॉलम के नाम (Item Field Name) उनकी तय Excel Col के Row 1 पर लिखना
+                        for i_name, i_info in item_table_rules.items():
+                            i_col = i_info.get("col", "").strip().upper()
+                            if i_col and i_col.isalpha():
+                                ws[f"{i_col}1"] = i_name
                     
                     first_inv_no = "INV"
                     overall_item_sr = 1
