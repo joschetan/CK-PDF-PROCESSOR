@@ -5,10 +5,9 @@ import os
 import re
 from io import BytesIO
 
-from pdf_engine import extract_header_value, detect_igst_status
+from pdf_engine import extract_header_value
 from test_suite import render_universal_test_suite
 from google_sheet_sync import fetch_all_from_sheet, push_rules_to_sheet, push_template_file_to_sheet, get_val_case_insensitive, load_template_bytes_from_sheet
-from igst_config_sync import fetch_igst_config_from_sheet
 
 def ensure_default_shipper():
     if "shipper_database" not in st.session_state:
@@ -22,7 +21,8 @@ def ensure_default_shipper():
             "mapping_rules": {},
             "item_table_rules": {},
             "item_table_rule_name": "parser_welspun",
-            "igst_config": {"lut_keywords": "", "paid_keywords": ""}
+            "target_sheet_link": "",
+            "target_tab_name": "Sheet1"
         }
 
 @st.cache_data(show_spinner=False)
@@ -52,7 +52,8 @@ def fetch_data_from_google_sheet(show_toast=False):
                     "mapping_rules": {},
                     "item_table_rules": {},
                     "item_table_rule_name": "parser_welspun",
-                    "igst_config": {"lut_keywords": "", "paid_keywords": ""}
+                    "target_sheet_link": "",
+                    "target_tab_name": "Sheet1"
                 }
             
             shipper_info = st.session_state["shipper_database"][s_name]
@@ -61,21 +62,12 @@ def fetch_data_from_google_sheet(show_toast=False):
                 shipper_info["mapping_rules"] = s_data.get("mapping_rules", {})
                 shipper_info["item_table_rules"] = s_data.get("item_table_rules", {})
                 shipper_info["item_table_rule_name"] = s_data.get("item_table_rule_name", "parser_welspun")
-                shipper_info["igst_config"] = s_data.get("igst_config", {"lut_keywords": "", "paid_keywords": ""})
+                shipper_info["target_sheet_link"] = s_data.get("target_sheet_link", "")
+                shipper_info["target_tab_name"] = s_data.get("target_tab_name", "Sheet1")
 
             t_bytes = load_template_bytes_from_sheet(s_name)
             if t_bytes:
                 shipper_info.setdefault("uploaded_files", {})["Full Job Excel Format File"] = t_bytes
-
-        for s_key in st.session_state["shipper_database"].keys():
-            igst_fetched = fetch_igst_config_from_sheet(s_key)
-            if igst_fetched and isinstance(igst_fetched, dict):
-                current_igst = st.session_state["shipper_database"][s_key].get("igst_config", {})
-                if not current_igst.get("lut_keywords"):
-                    current_igst["lut_keywords"] = igst_fetched.get("lut_keywords", "")
-                if not current_igst.get("paid_keywords"):
-                    current_igst["paid_keywords"] = igst_fetched.get("paid_keywords", "")
-                st.session_state["shipper_database"][s_key]["igst_config"] = current_igst
 
         if show_toast: st.toast("✅ गूगल शीट से रूल्स और टेम्पलेट लोड हो गए!")
     except Exception as e:
@@ -190,7 +182,8 @@ def render_shipper_data():
                         "mapping_rules": {},
                         "item_table_rules": {},
                         "item_table_rule_name": selected_parser_rule,
-                        "igst_config": {"lut_keywords": "", "paid_keywords": ""}
+                        "target_sheet_link": "",
+                        "target_tab_name": "Sheet1"
                     }
                     st.success(f"🎉 नया शिपर '{s_clean}' और पार्सर '{selected_parser_rule}' सफलतापूर्वक जुड़ गया है! अब नीचे से कॉन्फ़िगर करें.")
                     st.rerun()
@@ -217,6 +210,26 @@ def render_shipper_data():
             
             updated_parser_choice = st.selectbox("📌 इस शिपर के लिए एक्टिव पार्सर रूल (Parser File):", available_parsers, index=p_idx, key=f"sel_parser_{selected_shipper}")
             shipper_info["item_table_rule_name"] = updated_parser_choice
+
+            st.markdown("#### ☁️ Target Google Sheet Destination Config")
+            col_gs1, col_gs2 = st.columns(2)
+            with col_gs1:
+                target_sheet_link = st.text_input(
+                    "Target Google Sheet Link / ID:",
+                    value=shipper_info.get("target_sheet_link", ""),
+                    key=f"target_sheet_link_{selected_shipper}",
+                    placeholder="यहाँ गूगल शीट की लिंक या ID दर्ज करें"
+                )
+            with col_gs2:
+                target_tab_name = st.text_input(
+                    "Target Tab / Sheet Name:",
+                    value=shipper_info.get("target_tab_name", "Sheet1"),
+                    key=f"target_tab_name_{selected_shipper}",
+                    placeholder="उदा: INV या Sheet1"
+                )
+            
+            shipper_info["target_sheet_link"] = target_sheet_link
+            shipper_info["target_tab_name"] = target_tab_name
 
             st.write("---")
             st.subheader("📁 1. टेम्पलेट फ़ाइल अपलोड (अलग बटन)")
@@ -320,10 +333,6 @@ def render_shipper_data():
                         if g_items:
                             shipper_info["item_table_rules"] = dict(g_items)
                             
-                        g_igst = st.session_state.get("global_igst_config", {})
-                        if g_igst:
-                            shipper_info["igst_config"] = dict(g_igst)
-                            
                         st.success("🎉 ग्लोबल मास्टर से फॉर्मेट सफलतापूर्वक इम्पोर्ट हो गया!")
                         st.rerun()
                     else:
@@ -375,9 +384,6 @@ def render_shipper_data():
             curr_pdf_text = st.session_state.get("cached_pdf_text", "")
 
             for field in list(current_rules.keys()):
-                if field.lower() in ["igst status", "igst mode"] or current_rules[field].get("cell", "").strip().upper() in ["V", "B19"]:
-                    continue
-
                 s_val = current_rules[field]
                 c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11 = st.columns([1.6, 2.0, 1.2, 0.6, 1.3, 1.1, 1.3, 1.3, 1.5, 0.6, 0.9])
                 
@@ -433,33 +439,6 @@ def render_shipper_data():
             shipper_info["mapping_rules"] = updated_rules
 
             st.write("---")
-            st.subheader("🛡️ Column V Auto-Detection Configurator (LUT vs Paid 'P')")
-            st.caption("कस्टम्स पेनाल्टी से बचने के लिए शिपर के हिसाब से LUT और Paid ढूँढने के कीवर्ड्स यहाँ तय करें:")
-            
-            igst_cfg = shipper_info.get("igst_config", {})
-            
-            col_lut, col_paid = st.columns(2)
-            with col_lut:
-                updated_lut_kws = st.text_area(
-                    "📌 LUT Detection Keywords (कॉमा से अलग करें):",
-                    value=igst_cfg.get("lut_keywords", ""),
-                    key=f"lut_kw_input_{selected_shipper}",
-                    help="अगर इनमें से कोई भी शब्द PDF में मिला तो V कॉलम में सीधे 'LUT' जाएगा।"
-                )
-            with col_paid:
-                updated_paid_kws = st.text_area(
-                    "📌 Paid (P) Detection Keywords (कॉमा से अलग करें):",
-                    value=igst_cfg.get("paid_keywords", ""),
-                    key=f"paid_kw_input_{selected_shipper}",
-                    help="अगर LUT नहीं मिला और इनमें से कोई शब्द मिला तो V कॉलम में सीधे 'P' जाएगा।"
-                )
-                
-            shipper_info["igst_config"] = {
-                "lut_keywords": updated_lut_kws,
-                "paid_keywords": updated_paid_kws
-            }
-
-            st.write("---")
             
             c_head, c_add_btn = st.columns([7, 3])
             with c_head:
@@ -484,9 +463,6 @@ def render_shipper_data():
             available_header_fields = list(current_rules.keys())
             
             for item_field in list(item_rules.keys()):
-                if item_field.lower() in ["igst status", "igst mode"] or item_rules[item_field].get("col", "").strip().upper() in ["V", "B19"]:
-                    continue
-
                 ir = item_rules[item_field]
                 ic1, ic2, ic3, ic4, ic5, ic6 = st.columns([2.5, 1.5, 2.5, 2.5, 2.0, 0.8])
                 
@@ -503,7 +479,7 @@ def render_shipper_data():
                 with ic4:
                     if e_itype == "Header Field Mapping":
                         saved_rule = ir.get("rule", "")
-                        h_idx = available_header_fields.index(saved_rule) if saved_rule in available_fields else 0
+                        h_idx = available_header_fields.index(saved_rule) if saved_rule in available_header_fields else 0
                         e_irule = st.selectbox(f"ir_{item_field}", available_header_fields if available_header_fields else ["No Headers Found"], index=h_idx if available_header_fields else 0, label_visibility="collapsed")
                     else:
                         e_irule = st.text_input(f"ir_{item_field}", value=ir.get("rule", ""), label_visibility="collapsed")
@@ -532,7 +508,8 @@ def render_shipper_data():
                         "mapping_rules": s_data.get("mapping_rules", {}),
                         "item_table_rules": s_data.get("item_table_rules", {}),
                         "item_table_rule_name": s_data.get("item_table_rule_name", "parser_welspun"),
-                        "igst_config": s_data.get("igst_config", {})
+                        "target_sheet_link": s_data.get("target_sheet_link", ""),
+                        "target_tab_name": s_data.get("target_tab_name", "Sheet1")
                     }
                 
                 with st.spinner("⏳ गूगल शीट में केवल रूल्स सेव हो रहे हैं..."):
