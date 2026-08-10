@@ -54,6 +54,15 @@
                 "stop_kw": "",
                 "filter": "None",
                 "fallback": ""
+            },
+            "INVOICE NO": {
+                "keyword": "Invoice No",
+                "position": "2 Lines Below",
+                "cell": "H",
+                "match_mode": "Word Position",
+                "stop_kw": "1",
+                "filter": "None",
+                "fallback": ""
             }
         },
         "item_table_rules": {
