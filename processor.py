@@ -16,6 +16,10 @@ def render_processor():
         
     ensure_default_shipper()
     
+    # 📌 फाइल अपलोडर को रिफ्रेश करने के लिए काउंटर स्टेट
+    if "uploader_version" not in st.session_state:
+        st.session_state["uploader_version"] = 0
+    
     with st.sidebar:
         st.markdown("---")
         try:
@@ -42,7 +46,7 @@ def render_processor():
     )
     
     if not selected_shipper:
-        st.info("👆 कृपया प्रोसेसिंग शुरू करने के लिए ऊपर दिए गए ड्रॉपडाउन से शिपर चुनें।")
+        st.info("👆 कृपया प्रोसेसिंग शुरू करने के लिए ऊपर दिए गए ड्रॉपडाउन से शिपर चुनें। जोड़ी गई सेटिंग्स लोड हो रही हैं...")
         return
         
     if selected_shipper:
@@ -59,23 +63,30 @@ def render_processor():
         
         st.markdown("---")
         
-        # 📌 'Upload PDF's' हेडिंग और 'Reset' बटन को एक ही लाइन में सेट किया गया है
+        # 📌 'Upload PDF's' हेडिंग और 'Reset' बटन
         col_up_title, col_up_btn = st.columns([7, 3])
         with col_up_title:
             st.subheader("📑 Upload PDF's")
         with col_up_btn:
             if st.button("🔄 Reset & Clear All", type="secondary", use_container_width=True):
-                # सेशन स्टेट की सभी प्रोसेस फाइलों को साफ़ करके पेज रीफ्रेश करें
-                for key in list(st.session_state.keys()):
-                    if "processed_file_ready" in key or "cached_pdf" in key or "multi_pdf_uploader" in key:
-                        del st.session_state[key]
+                # सभी स्टेट और प्रोसेस फाइलों को साफ़ करें
+                if "processed_file_ready" in st.session_state:
+                    del st.session_state["processed_file_ready"]
+                if "cached_pdf_bytes" in st.session_state:
+                    del st.session_state["cached_pdf_bytes"]
+                
+                # 🚀 काउंटर बढ़ाकर अपलोडर विजेट को पूरी तरह रीसेट (साफ़) कर दें
+                st.session_state["uploader_version"] += 1
                 st.rerun()
+        
+        # 📌 यूनीक वर्जन की वजह से रीसेट दबाते ही पुरानी पीडीएफ पूरी तरह गायब हो जाएंगी
+        uploader_key = f"multi_pdf_uploader_{selected_shipper}_{st.session_state['uploader_version']}"
         
         uploaded_pdfs = st.file_uploader(
             "एक या एक से अधिक स्टैंडर्ड इनवॉइस PDF चुनें", 
             type=["pdf"], 
             accept_multiple_files=True,
-            key=f"multi_pdf_uploader_{selected_shipper}"
+            key=uploader_key
         )
         
         if uploaded_pdfs:
