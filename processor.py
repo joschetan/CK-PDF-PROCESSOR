@@ -7,7 +7,7 @@ import json
 from io import BytesIO
 
 from parser_bkt_register import extract_bkt_items, map_items_to_excel_dynamic as map_bkt
-from shipper_data import ensure_default_shipper
+from shipper_data import ensure_default_shipper, fetch_data_from_github
 from pdf_engine import extract_header_value
 
 GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwYVVWbqNZbzTOujVmip41KlID-rf9zEQLy_JM04ZEhUL-kixwRMD9nbPnOrZ46Fmz3/exec"
@@ -37,6 +37,11 @@ def send_data_to_target_google_sheet(sheet_link, tab_name, wb):
         return False
 
 def render_processor():
+    # 🚀 ऐप खुलते ही या रिफ्रेश होते ही बिना एडमिन जाए बैकग्राउंड में डेटा लोड हो जाएगा
+    if "github_data_loaded" not in st.session_state:
+        fetch_data_from_github(show_toast=False)
+        st.session_state["github_data_loaded"] = True
+        
     ensure_default_shipper()
     
     with st.sidebar:
