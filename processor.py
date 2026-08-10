@@ -8,7 +8,7 @@ from io import BytesIO
 
 from parser_sample import extract_welspun_items, map_items_to_excel_dynamic as map_sample
 from parser_bkt_register import extract_bkt_items, map_items_to_excel_dynamic as map_bkt
-from shipper_data import fetch_data_from_google_sheet, ensure_default_shipper
+from shipper_data import ensure_default_shipper
 from pdf_engine import apply_rule_filter, extract_header_value
 
 # गूगल शीट पर डेटा भेजने के लिए एप्स स्क्रिप्ट का यूआरएल (यदि लिंक दी गई हो)
@@ -39,7 +39,6 @@ def send_data_to_target_google_sheet(sheet_link, tab_name, wb):
         return False
 
 def render_processor():
-    fetch_data_from_google_sheet()
     ensure_default_shipper()
     
     # 🌟 साइडबार में डेवलपर प्रोफाइल (फोटो और संपर्क विवरण)
