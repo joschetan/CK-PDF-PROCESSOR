@@ -121,7 +121,7 @@ def render_shipper_data():
     st.header("🏢 Header & Item Mapping Rules Builder")
     st.caption("अपने शिपर के अनुसार रूल्स सेट करें और लाइव टेस्ट करें।")
     
-    with st.expander("➕ Add New Shipper (नया शिपर जोड़ें)", expanded=False):
+    with st.expander("➕ Add New Shipper (नया शिपर जोड़ें)", expanded=False):
         new_shipper_name = st.text_input("नया शिपर कंपनी का नाम दर्ज करें:", key="input_new_shipper_name")
         
         available_parsers = ["parser_bkt_register"]
@@ -140,7 +140,7 @@ def render_shipper_data():
                         "target_sheet_link": "",
                         "target_tab_name": "Sheet1"
                     }
-                    st.success(f"🎉 नया शिपर '{s_clean}' सफलतापूर्वक जुड़ गया है!")
+                    st.success(f"🎉 नया शिपर '{s_clean}' सफलतापूर्वक जुड़ गया है!")
                     st.rerun()
                 else:
                     st.warning("⚠️ यह शिपर पहले से मौजूद है!")
@@ -225,11 +225,13 @@ def render_shipper_data():
             current_rules = shipper_info.get("mapping_rules", {})
             updated_rules = {}
             
+            # 🚀 यहाँ 'box' विकल्प जोड़ दिया गया है
             pos_options = [
                 "Right (आगे)", 
                 "Below (नीचे)", 
                 "2 Lines Below", 
                 "📦 Extract Inside Box (डब्बे के अंदर का टेक्स्ट)", 
+                "box", 
                 "Table Row Item", 
                 "Table Row Index"
             ]
