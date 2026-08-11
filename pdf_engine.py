@@ -74,8 +74,8 @@ def apply_rule_filter(raw_text, mode, stop_kw, flt, keyword=""):
 def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, filter_type, field_label="", pdf_bytes=None):
     raw_t = ""
     
-    # 📦 SMART BOX EXTRACTION ENGINE (कंसैनी और बड़े पतों के लिए)
-    if position == "📦 Extract Inside Box (डब्बे के अंदर का टेक्स्ट)" and pdf_bytes and keyword:
+    # 📦 SMART EXTRACT INSIDE BOX ENGINE (कंसाईनी और पोर्ट दोनों के लिए एकदम परफेक्ट)
+    if "Extract Inside" in position and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
                 page = pdf.pages[0]
@@ -91,73 +91,48 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                     kw_x0 = kw_word['x0']
                     kw_y0 = kw_word['top']
                     
+                    # यदि पोर्ट या डेस्टिनेशन है तो छोटा बॉक्स, कंसैनी है तो बड़ा बॉक्स स्कैन करें
+                    is_port_dest = any(k in keyword.lower() for k in ["port", "destination", "discharge", "loading"])
+                    
                     box_x0 = kw_x0 - 5
-                    box_x1 = kw_x0 + 260
-                    box_y0 = kw_y0 - 2
-                    box_y1 = kw_y0 + 130
+                    box_x1 = kw_x0 + (180 if is_port_dest else 260)
+                    box_y0 = kw_y0 + (8 if is_port_dest else -2)
+                    box_y1 = kw_y0 + (35 if is_port_dest else 130)
                     
                     block_words = []
                     for w in words:
                         if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1:
                             block_words.append(w)
                     
-                    lines_dict = {}
-                    for w in block_words:
-                        line_y = round(w['top'] / 4) * 4
-                        lines_dict.setdefault(line_y, []).append(w)
-                        
-                    sorted_y = sorted(lines_dict.keys())
-                    result_lines = []
-                    stop_markers = ["notify:", "pre-carriage", "vessel", "port of", "place of", "terms of", "buyer's order"]
-                    
-                    for y in sorted_y:
-                        line_words = sorted(lines_dict[y], key=lambda x: x['x0'])
-                        line_text = " ".join([w['text'] for w in line_words]).strip()
-                        if not line_text: continue
-                        
-                        lower_lt = line_text.lower()
-                        if any(marker in lower_lt for marker in stop_markers if marker not in keyword.lower()):
-                            break
-                        result_lines.append(line_text)
-                        
-                    if result_lines:
-                        return "\n".join(result_lines).strip()
-        except Exception:
-            pass
-
-    # 📝 FULL LINE INSIDE BOX (पोर्ट, फाइनल डिस्टिनेशन जैसे सिंगल बॉक्स के पूरे टेक्स्ट के लिए)
-    if position == "📝 Full Line Inside Box (डब्बे की पूरी लाइन)" and pdf_bytes and keyword:
-        try:
-            with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-                page = pdf.pages[0]
-                words = page.extract_words()
-                
-                kw_word = None
-                for w in words:
-                    if keyword.lower() in w['text'].lower():
-                        kw_word = w
-                        break
-                
-                if kw_word:
-                    kw_x0 = kw_word['x0']
-                    kw_y0 = kw_word['top']
-                    
-                    # कीवर्ड के ठीक नीचे वाले बॉक्स की सीमा (लगभग 10 से 35 पिक्सेल नीचे)
-                    box_x0 = kw_x0 - 5
-                    box_x1 = kw_x0 + 200
-                    box_y0 = kw_y0 + 8
-                    box_y1 = kw_y0 + 38
-                    
-                    box_words = []
-                    for w in words:
-                        if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1:
-                            box_words.append(w)
+                    if is_port_dest and block_words:
+                        # पोर्ट/डिस्चार्ज के लिए पूरी लाइन एक साथ जोड़ें
+                        block_words = sorted(block_words, key=lambda x: (round(x['top'] / 5), x['x0']))
+                        full_text = " ".join([w['text'] for w in block_words]).strip()
+                        if full_text:
+                            return full_text
+                    else:
+                        # कंसैनी/पते के लिए मल्टी-लाइन लॉजिक
+                        lines_dict = {}
+                        for w in block_words:
+                            line_y = round(w['top'] / 4) * 4
+                            lines_dict.setdefault(line_y, []).append(w)
                             
-                    if box_words:
-                        box_words = sorted(box_words, key=lambda x: (round(x['top'] / 5), x['x0']))
-                        full_box_text = " ".join([w['text'] for w in box_words]).strip()
-                        if full_box_text:
-                            return full_box_text
+                        sorted_y = sorted(lines_dict.keys())
+                        result_lines = []
+                        stop_markers = ["notify:", "pre-carriage", "vessel", "port of", "place of", "terms of", "buyer's order"]
+                        
+                        for y in sorted_y:
+                            line_words = sorted(lines_dict[y], key=lambda x: x['x0'])
+                            line_text = " ".join([w['text'] for w in line_words]).strip()
+                            if not line_text: continue
+                            
+                            lower_lt = line_text.lower()
+                            if any(marker in lower_lt for marker in stop_markers if marker not in keyword.lower()):
+                                break
+                            result_lines.append(line_text)
+                            
+                        if result_lines:
+                            return "\n".join(result_lines).strip()
         except Exception:
             pass
 
