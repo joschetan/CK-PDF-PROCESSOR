@@ -145,6 +145,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         except Exception:
             pass
 
+    # 📦 STRICT LEFT COLUMN BOX OPTION (पोर्ट ऑफ डिस्चार्ज जैसे बाएं बॉक्स के लिए सुरक्षित चौड़ाई)
     if position == "box" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -170,10 +171,11 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                     kw_x0 = kw_word['x0']
                     kw_y0 = kw_word['top']
                     
+                    # 🛠️ चौड़ाई को 115 पर सीमित किया गया है ताकि दाहिना डिब्बा क्रॉस न हो
                     box_x0 = kw_x0 - 5
-                    box_x1 = kw_x0 + 130
-                    box_y0 = kw_y0 + 10
-                    box_y1 = kw_y0 + 32
+                    box_x1 = kw_x0 + 115  
+                    box_y0 = kw_y0 + 8
+                    box_y1 = kw_y0 + 35   
                     
                     box_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
                     if box_words:
