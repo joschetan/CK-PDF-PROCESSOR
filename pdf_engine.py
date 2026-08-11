@@ -9,13 +9,11 @@ def remove_duplicate_phrases(text):
     if not words:
         return ""
     
-    # लगातार आने वाले डुप्लीकेट शब्दों को हटाना
     unique_words = []
     for w in words:
         if not unique_words or unique_words[-1].lower() != w.lower():
             unique_words.append(w)
             
-    # यदि पूरा वाक्यांश या आधा हिस्सा दो बार रिपीट हो रहा हो (जैसे A B C A B C)
     n = len(unique_words)
     if n % 2 == 0:
         half = n // 2
@@ -172,17 +170,21 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                     kw_x0 = kw_word['x0']
                     kw_y0 = kw_word['top']
                     
-                    box_x0 = kw_x0 - 10
-                    box_x1 = kw_x0 + 170
-                    box_y0 = kw_y0 + 8
-                    box_y1 = kw_y0 + 26
+                    # 🔒 सख्त कॉलम बाउंड्री (Final destination वाले डिब्बे में जाने से रोकने के लिए)
+                    box_x0 = kw_x0 - 5
+                    box_x1 = kw_x0 + 110  # केवल बाएं बॉक्स की सीमा तक सीमित
+                    box_y0 = kw_y0 + 10
+                    box_y1 = kw_y0 + 32
                     
                     box_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
                     if box_words:
+                        # शब्दों को सही होरिजेंटल क्रम में सॉर्ट करना ताकि शब्द उलटे न हों
+                        box_words = sorted(box_words, key=lambda x: x['x0'])
+                        
                         filtered_words = []
                         stop_text = str(stop_kw).strip().lower() if stop_kw else ""
                         
-                        for w in sorted(box_words, key=lambda x: (round(x['top'] / 5), x['x0'])):
+                        for w in box_words:
                             w_txt = w['text'].lower()
                             if stop_text and (stop_text in w_txt or w_txt.startswith(stop_text)):
                                 break
@@ -230,3 +232,4 @@ def detect_igst_status(pdf_text, lut_keywords="", paid_keywords=""):
     for kw in custom_paid_kws:
         if kw in text_lower: return "P" 
     return "UNKNOWN"
+```[cite: 4]
