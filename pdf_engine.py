@@ -170,15 +170,13 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                     kw_x0 = kw_word['x0']
                     kw_y0 = kw_word['top']
                     
-                    # 🔒 सख्त कॉलम बाउंड्री (Final destination वाले डिब्बे में जाने से रोकने के लिए)
                     box_x0 = kw_x0 - 5
-                    box_x1 = kw_x0 + 110  # केवल बाएं बॉक्स की सीमा तक सीमित
+                    box_x1 = kw_x0 + 110
                     box_y0 = kw_y0 + 10
                     box_y1 = kw_y0 + 32
                     
                     box_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
                     if box_words:
-                        # शब्दों को सही होरिजेंटल क्रम में सॉर्ट करना ताकि शब्द उलटे न हों
                         box_words = sorted(box_words, key=lambda x: x['x0'])
                         
                         filtered_words = []
