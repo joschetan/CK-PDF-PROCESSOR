@@ -145,7 +145,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         except Exception:
             pass
 
-    # 🚀 SMART COLUMN EXTRACTOR (Strict Left vs Right Separation & Bypassing Country Header)
+    # Generic Below Position Extractor
     if position == "Below (नीचे)" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -153,30 +153,16 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                 words = page.extract_words()
                 full_kw = keyword.strip().lower()
                 
-                target_kw_words = []
+                kw_word = None
                 for w in words:
                     if full_kw in w['text'].lower() or all(p in w['text'].lower() for p in full_kw.split()):
-                        # यदि कीवर्ड 'destination' है, तो ऊपर वाले 'Country of final destination' (Top < 250) को छोड़ दें
-                        if "destination" in full_kw and w['top'] < 250:
-                            continue
-                        target_kw_words.append(w)
+                        kw_word = w
+                        break
                 
-                if target_kw_words:
-                    kw_word = target_kw_words[0]
+                if kw_word:
                     kw_y0 = kw_word['top']
-                    
                     below_words = [w for w in words if kw_y0 + 8 <= w['top'] <= kw_y0 + 32]
                     if below_words:
-                        f_label = field_label.lower()
-                        kw_lower = full_kw
-                        
-                        # यदि फील्ड या कीवर्ड में 'destination' या 'final' है -> केवल दाहिना कॉलम (X0 >= 140) उठाएं
-                        if "destination" in f_label or "destination" in kw_lower or "final" in f_label:
-                            below_words = [w for w in below_words if w['x0'] >= 140]
-                        # यदि फील्ड या कीवर्ड में 'discharge' या 'port' है -> केवल बायां कॉलम (X0 < 135) उठाएं
-                        elif "discharge" in f_label or "discharge" in kw_lower or "port" in f_label:
-                            below_words = [w for w in below_words if w['x0'] < 135]
-                        
                         below_words = sorted(below_words, key=lambda x: (round(x['top'] / 5), x['x0']))
                         extracted_below = " ".join([w['text'] for w in below_words]).strip()
                         if extracted_below:
