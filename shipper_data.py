@@ -206,6 +206,29 @@ def render_shipper_data():
                 st.session_state["cached_pdf_text"] = pdf_text
                 st.success(f"📄 PDF अपलोड है ({len(pdf_lines)} पंक्तियाँ)। अब नीचे ⚡ Test बटन दबाएँ!")
 
+                # 🔍 PDFPlumber Raw Structure Debugger (यहाँ जोड़ा गया है)
+                with st.expander("🔍 PDFPlumber Raw Structure Debugger (शब्द और कोऑर्डिनेट्स देखें)"):
+                    if st.button("📊 Inspect PDF Raw Words & Layout", key=f"inspect_pdf_{selected_shipper}"):
+                        try:
+                            with pdfplumber.open(io.BytesIO(st.session_state["cached_pdf_bytes"])) as pdf:
+                                page = pdf.pages[0]
+                                words = page.extract_words()
+                                
+                                st.write(f"कुल मिले शब्द (Total Words): {len(words)}")
+                                
+                                debug_data = []
+                                for w in words:
+                                    debug_data.append({
+                                        "Text": w['text'],
+                                        "X0 (Left)": round(w['x0'], 2),
+                                        "Top (Height)": round(w['top'], 2),
+                                        "X1 (Right)": round(w['x1'], 2)
+                                    })
+                                
+                                st.dataframe(debug_data, use_container_width=True)
+                        except Exception as e:
+                            st.error(f"एरर: {str(e)}")
+
             st.write("---")
             
             col_title, col_sync, col_add_h = st.columns([4.5, 3.0, 2.5])
@@ -225,7 +248,6 @@ def render_shipper_data():
             current_rules = shipper_info.get("mapping_rules", {})
             updated_rules = {}
             
-            # 🚀 यहाँ 'box' विकल्प जोड़ दिया गया है
             pos_options = [
                 "Right (आगे)", 
                 "Below (नीचे)", 
