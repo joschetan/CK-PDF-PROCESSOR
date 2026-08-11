@@ -74,14 +74,13 @@ def apply_rule_filter(raw_text, mode, stop_kw, flt, keyword=""):
 def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, filter_type, field_label="", pdf_bytes=None):
     raw_t = ""
     
-    # 📦 SMART BOX EXTRACTION ENGINE (डब्बे के अंदर की सटीक सीमा)
+    # 📦 SMART BOX EXTRACTION ENGINE (कंसैनी और बड़े पतों के लिए)
     if position == "📦 Extract Inside Box (डब्बे के अंदर का टेक्स्ट)" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
                 page = pdf.pages[0]
                 words = page.extract_words()
                 
-                # 1. कीवर्ड की पोजीशन ढूँढना
                 kw_word = None
                 for w in words:
                     if keyword.lower() in w['text'].lower():
@@ -92,19 +91,16 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                     kw_x0 = kw_word['x0']
                     kw_y0 = kw_word['top']
                     
-                    # 2. उस डिब्बे की हदों (Box Boundaries) का अनुमान लगाना 
                     box_x0 = kw_x0 - 5
-                    box_x1 = kw_x0 + 260  # एक मानक डिब्बे की चौड़ाई सीमा
+                    box_x1 = kw_x0 + 260
                     box_y0 = kw_y0 - 2
-                    box_y1 = kw_y0 + 130  # डिब्बे की अधिकतम ऊँचाई नीचे की तरफ
+                    box_y1 = kw_y0 + 130
                     
-                    # 3. सिर्फ उसी डिब्बे की बाउंड्री के अंदर आने वाले शब्दों को चुनना
                     block_words = []
                     for w in words:
                         if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1:
                             block_words.append(w)
                     
-                    # 4. लाइनों को Y-Axis के हिसाब से जोड़ना
                     lines_dict = {}
                     for w in block_words:
                         line_y = round(w['top'] / 4) * 4
@@ -126,6 +122,42 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                         
                     if result_lines:
                         return "\n".join(result_lines).strip()
+        except Exception:
+            pass
+
+    # 📝 FULL LINE INSIDE BOX (पोर्ट, फाइनल डिस्टिनेशन जैसे सिंगल बॉक्स के पूरे टेक्स्ट के लिए)
+    if position == "📝 Full Line Inside Box (डब्बे की पूरी लाइन)" and pdf_bytes and keyword:
+        try:
+            with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+                page = pdf.pages[0]
+                words = page.extract_words()
+                
+                kw_word = None
+                for w in words:
+                    if keyword.lower() in w['text'].lower():
+                        kw_word = w
+                        break
+                
+                if kw_word:
+                    kw_x0 = kw_word['x0']
+                    kw_y0 = kw_word['top']
+                    
+                    # कीवर्ड के ठीक नीचे वाले बॉक्स की सीमा (लगभग 10 से 35 पिक्सेल नीचे)
+                    box_x0 = kw_x0 - 5
+                    box_x1 = kw_x0 + 200
+                    box_y0 = kw_y0 + 8
+                    box_y1 = kw_y0 + 38
+                    
+                    box_words = []
+                    for w in words:
+                        if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1:
+                            box_words.append(w)
+                            
+                    if box_words:
+                        box_words = sorted(box_words, key=lambda x: (round(x['top'] / 5), x['x0']))
+                        full_box_text = " ".join([w['text'] for w in box_words]).strip()
+                        if full_box_text:
+                            return full_box_text
         except Exception:
             pass
 
@@ -151,7 +183,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
     else:
         raw_t = pdf_text
 
-    if position == "📦 Extract Inside Box (डब्बे के अंदर का टेक्स्ट)":
+    if "Inside Box" in position:
         return raw_t.strip()
         
     return apply_rule_filter(raw_t, mode, stop_kw, filter_type, keyword)
