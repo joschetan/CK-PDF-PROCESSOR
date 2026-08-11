@@ -125,37 +125,45 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         except Exception:
             pass
 
-    # 📦 2. NEW 'box' OPTION (केवल सही डिब्बे से पोर्ट/डिस्चार्ज निकालने के लिए)
+    # 📦 2. STRICT FULL-KEYWORD MATCH 'box' OPTION
     if position == "box" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
                 page = pdf.pages[0]
                 words = page.extract_words()
                 
-                target_kw = keyword.strip().lower()
-                kw_word = None
+                # यूजर द्वारा दिया गया पूरा कीवर्ड (जैसे "Port of discharge" या "Final destination")
+                full_kw = keyword.strip().lower()
                 
-                # नीचे के हिस्से में सही कीवर्ड ढूँढना (ऊपर के 150 पिक्सेल यानी Exporter/Consignee क्षेत्र को छोड़कर)
+                # पेज के शब्दों को लाइन-वाइज (y-coordinate के हिसाब से) ग्रुप करेंगे ताकि पूरा वाक्य एक साथ चेक हो सके
+                lines_map = {}
                 for w in words:
-                    if w['top'] > 150:
-                        if target_kw in w['text'].lower() or all(part in w['text'].lower() for part in target_kw.split()):
-                            kw_word = w
-                            break
-                
-                if not kw_word:
-                    first_word = target_kw.split()[0] if target_kw.split() else ""
-                    for w in words:
-                        if w['top'] > 150 and first_word and first_word in w['text'].lower():
-                            kw_word = w
+                    ly = round(w['top'] / 5) * 5
+                    lines_map.setdefault(ly, []).append(w)
+                    
+                kw_word = None
+                for ly in sorted(lines_map.keys()):
+                    line_words = sorted(lines_map[ly], key=lambda x: x['x0'])
+                    line_full_text = " ".join([w['text'] for w in line_words]).strip().lower()
+                    
+                    # 🔒 सख्त नियम: जब तक पूरा का पूरा कीवर्ड एक लाइन में नहीं मिलेगा, यह आगे नहीं बढ़ेगा
+                    if full_kw in line_full_text:
+                        # सही कीवर्ड का exact शब्द (जैसे 'discharge' या 'destination') ढूँढेंगे ताकि उसका सटीक बॉक्स मिल सके
+                        last_kw_token = full_kw.split()[-1]
+                        for w in line_words:
+                            if last_kw_token in w['text'].lower():
+                                kw_word = w
+                                break
+                        if kw_word:
                             break
                 
                 if kw_word:
                     kw_x0 = kw_word['x0']
                     kw_y0 = kw_word['top']
                     
-                    box_x0 = kw_x0 - 10
+                    box_x0 = kw_x0 - 30
                     box_x1 = kw_x0 + 200
-                    box_y0 = kw_y0 + 10
+                    box_y0 = kw_y0 + 8
                     box_y1 = kw_y0 + 38
                     
                     box_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
