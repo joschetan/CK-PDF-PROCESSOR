@@ -74,7 +74,7 @@ def apply_rule_filter(raw_text, mode, stop_kw, flt, keyword=""):
 def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, filter_type, field_label="", pdf_bytes=None):
     raw_t = ""
     
-    # 📦 1. पुराना सुरक्षित 'Extract Inside' (कंसाईनी और पते के लिए जैसा का तैसा रखा है)
+    # 📦 1. पुराना सुरक्षित 'Extract Inside' (कंसाईनी और पते के लिए जैसा का तैसा सुरक्षित है)
     if position == "📦 Extract Inside Box (डब्बे के अंदर का टेक्स्ट)" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -125,7 +125,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         except Exception:
             pass
 
-    # 📦 2. NEW DEDICATED 'box' OPTION (केवल पोर्ट और डेस्टिनेशन के लिए)
+    # 📦 2. NEW 'box' OPTION (केवल पोर्ट और डेस्टिनेशन के लिए - पूरी लाइन खींचने हेतु)
     if position == "box" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
