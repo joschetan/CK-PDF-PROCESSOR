@@ -145,7 +145,6 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         except Exception:
             pass
 
-    # 📦 MANUAL CONTROLLED WIDTH BOX OPTION (सही Left-to-Right सॉर्टिंग के साथ)
     if position == "box" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -171,15 +170,13 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                     kw_x0 = kw_word['x0']
                     kw_y0 = kw_word['top']
                     
-                    # 🛠️ यहाँ से आप अपनी मर्जी से चौड़ाई (+ 115) को घटा-बढ़ा सकते हैं
                     box_x0 = kw_x0 - 5
-                    box_x1 = kw_x0 + 115  # इसे जरूरत के अनुसार बदल सकते हैं (जैसे 100, 110, 120)
+                    box_x1 = kw_x0 + 115
                     box_y0 = kw_y0 + 10
                     box_y1 = kw_y0 + 35
                     
                     box_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
                     if box_words:
-                        # शब्दों को हमेशा बाएं से दाएं (Left to Right) सही क्रम में सॉर्ट करना
                         box_words = sorted(box_words, key=lambda x: x['x0'])
                         
                         filtered_words = []
