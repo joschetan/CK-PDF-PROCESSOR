@@ -145,7 +145,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         except Exception:
             pass
 
-    # 🚀 SMART INTELLIGENT COLUMN EXTRACTOR (Left vs Right Column Separation)
+    # 🚀 SMART COLUMN EXTRACTOR (Correctly targeting 'Final destination' vs 'Port of discharge')
     if position == "Below (नीचे)" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -153,16 +153,19 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                 words = page.extract_words()
                 full_kw = keyword.strip().lower()
                 
-                kw_word = None
+                # यदि कीवर्ड 'destination' है, तो हम विशेष रूप से नीचे वाले 'Final destination' (Top > 250) को ढूंढेंगे ताकि ऊपर वाला 'Country of final destination' छूट जाए
+                target_kw_words = []
                 for w in words:
                     if full_kw in w['text'].lower() or all(p in w['text'].lower() for p in full_kw.split()):
-                        kw_word = w
-                        break
+                        if "destination" in full_kw and w['top'] < 250:
+                            continue # ऊपर वाले 'Country of final destination' को छोड़ दें
+                        target_kw_words.append(w)
                 
-                if kw_word:
+                if target_kw_words:
+                    kw_word = target_kw_words[0]
                     kw_y0 = kw_word['top']
                     
-                    # कीवर्ड के ঠিক नीचे (Vertical Range) मौजूद शब्दों को ढूंढना
+                    # कीवर्ड के ठीक नीचे मौजूद शब्दों को ढूंढना
                     below_words = [w for w in words if kw_y0 + 8 <= w['top'] <= kw_y0 + 32]
                     if below_words:
                         f_label = field_label.lower()
@@ -207,14 +210,3 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         return remove_duplicate_phrases(raw_t.strip())
         
     return apply_rule_filter(raw_t, mode, stop_kw, filter_type, keyword)
-
-def detect_igst_status(pdf_text, lut_keywords="", paid_keywords=""):
-    if not pdf_text: return "UNKNOWN"
-    text_lower = pdf_text.lower()
-    custom_lut_kws = [k.strip().lower() for k in lut_keywords.split(",") if k.strip()]
-    for kw in custom_lut_kws:
-        if kw in text_lower: return "LUT"
-    custom_paid_kws = [k.strip().lower() for k in paid_keywords.split(",") if k.strip()]
-    for kw in custom_paid_kws:
-        if kw in text_lower: return "P" 
-    return "UNKNOWN"
