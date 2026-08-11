@@ -145,7 +145,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         except Exception:
             pass
 
-    # 🚀 STRONGER & SMARTER 'Below (नीचे)' OPTION (बिना बॉक्स के सटीक लाइन उठाने के लिए)
+    # 🚀 STABLE & UNIVERSAL 'Below (नीचे)' OPTION WITH STRICT X-AXIS BOUNDARY
     if position == "Below (नीचे)" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -160,16 +160,14 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                         break
                 
                 if kw_word:
-                    kw_x0 = kw_word['x0']
-                    kw_x1 = kw_word['x1']
                     kw_y0 = kw_word['top']
                     
-                    # कीवर्ड के ঠিক नीचे (थोड़ी सी Vertical Range में) मौजूद शब्दों को ढूंढना
-                    below_words = [w for w in words if kw_y0 + 8 <= w['top'] <= kw_y0 + 32 and w['x0'] >= kw_x0 - 10]
+                    # कीवर्ड के ঠিক नीचे (Vertical Range) मौजूद शब्दों को ढूंढना
+                    below_words = [w for w in words if kw_y0 + 8 <= w['top'] <= kw_y0 + 32]
                     if below_words:
-                        # अगर पोर्ट ऑफ डिस्चार्ज है, तो सिर्फ बाएं कॉलम तक सीमित रखें (दाहिने कॉलम को काट दें)
-                        if "discharge" in full_kw or "loading" in full_kw:
-                            below_words = [w for w in below_words if w['x0'] < kw_x0 + 130]
+                        # 🛠️ पक्का नियम: अगर फील्ड या कीवर्ड में 'discharge' या 'port' है, तो केवल बाएं कॉलम (X0 < 135) के शब्द लें
+                        if "discharge" in full_kw or "port" in full_kw or "discharge" in field_label.lower() or "port" in field_label.lower():
+                            below_words = [w for w in below_words if w['x0'] < 135]
                         
                         below_words = sorted(below_words, key=lambda x: (round(x['top'] / 5), x['x0']))
                         extracted_below = " ".join([w['text'] for w in below_words]).strip()
