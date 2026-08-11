@@ -230,4 +230,3 @@ def detect_igst_status(pdf_text, lut_keywords="", paid_keywords=""):
     for kw in custom_paid_kws:
         if kw in text_lower: return "P" 
     return "UNKNOWN"
-```[cite: 4]
