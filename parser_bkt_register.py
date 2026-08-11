@@ -71,7 +71,7 @@ def extract_bkt_items(pdf_lines, pdf_text=""):
 def extract_bkt_header_value(pdf_bytes, keyword, field_label=""):
     """
     BKT Register के लेआउट के अनुसार विशिष्ट रूप से Left Column (Port of Discharge) 
-    और Right Column (Final Destination) को उनके X-Axis कोऑर्डिनेट्स के आधार पर अलग करने वाला पार्सर नियम।
+    और Right Column (Final Destination) को उनके X-Axis और Top कोऑर्डिनेट्स के आधार पर अलग करने वाला पार्सर नियम।
     """
     try:
         with pdfplumber.open(pdf_bytes) as pdf:
@@ -82,7 +82,7 @@ def extract_bkt_header_value(pdf_bytes, keyword, field_label=""):
             target_kw_words = []
             for w in words:
                 if full_kw in w['text'].lower() or all(p in w['text'].lower() for p in full_kw.split()):
-                    # यदि कीवर्ड 'destination' है, तो ऊपर वाले 'Country of final destination' (Top < 250) को छोड़ दें
+                    # 🛠️ पक्का नियम: यदि कीवर्ड 'destination' है, तो ऊपर वाले 'Country of final destination' (Top < 250) को पूरी तरह छोड़ दें
                     if "destination" in full_kw and w['top'] < 250:
                         continue
                     target_kw_words.append(w)
@@ -133,7 +133,6 @@ def map_items_to_excel_dynamic(
     """
     मल्टीपल PDF प्रोसेसिंग के बाद Container Number (Col L) के आधार पर 
     समान पंक्तियों को मर्ज करता है, कॉमा से वैल्यू जोड़ता है और N, O, P का टोटल करता है।
-    साथ ही हेडर मैपिंग के दौरान BKT विशिष्ट कॉलम एक्सट्रैक्शन का उपयोग करता है।
     """
     current_excel_row = start_excel_row
     overall_sr = start_overall_sr
@@ -185,7 +184,7 @@ def map_items_to_excel_dynamic(
                 tot_net, tot_gross, tot_qty = 0.0, 0.0, 0
                 
                 for r in r_list:
-                    val_h = str(ws[f"H{r}"].value or "").strip()
+                    val_h = str(ws[f"H{r}"].value or "").setItem if hasattr(ws[f"H{r}"], 'setItem') else str(ws[f"H{r}"].value or "").strip()
                     val_i = str(ws[f"I{r}"].value or "").strip()
                     val_w = str(ws[f"W{r}"].value or "").strip()
                     
@@ -220,8 +219,6 @@ def map_items_to_excel_dynamic(
         
         if rows_to_delete:
             all_data = []
-            headers = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
-            
             for r in range(2, ws.max_row + 1):
                 if r not in rows_to_delete:
                     row_vals = [ws.cell(row=r, column=c).value for c in range(1, ws.max_column + 1)]
