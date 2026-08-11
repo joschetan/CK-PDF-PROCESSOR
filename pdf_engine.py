@@ -74,7 +74,7 @@ def apply_rule_filter(raw_text, mode, stop_kw, flt, keyword=""):
 def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, filter_type, field_label="", pdf_bytes=None):
     raw_t = ""
     
-    # 📦 SMART EXTRACT INSIDE BOX ENGINE (कंसाईनी और पोर्ट दोनों के लिए एकदम परफेक्ट)
+    # 📦 SUPER SMART EXTRACT INSIDE BOX ENGINE
     if "Extract Inside" in position and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -83,7 +83,8 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                 
                 kw_word = None
                 for w in words:
-                    if keyword.lower() in w['text'].lower():
+                    # कीवर्ड को आंशिक रूप से मैच करने के लिए (जैसे 'Port of discharge' में से 'discharge' या 'port')
+                    if any(k.lower() in w['text'].lower() for k in keyword.split()):
                         kw_word = w
                         break
                 
@@ -91,27 +92,27 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                     kw_x0 = kw_word['x0']
                     kw_y0 = kw_word['top']
                     
-                    # यदि पोर्ट या डेस्टिनेशन है तो छोटा बॉक्स, कंसैनी है तो बड़ा बॉक्स स्कैन करें
                     is_port_dest = any(k in keyword.lower() for k in ["port", "destination", "discharge", "loading"])
                     
-                    box_x0 = kw_x0 - 5
-                    box_x1 = kw_x0 + (180 if is_port_dest else 260)
-                    box_y0 = kw_y0 + (8 if is_port_dest else -2)
-                    box_y1 = kw_y0 + (35 if is_port_dest else 130)
-                    
-                    block_words = []
-                    for w in words:
-                        if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1:
-                            block_words.append(w)
-                    
-                    if is_port_dest and block_words:
-                        # पोर्ट/डिस्चार्ज के लिए पूरी लाइन एक साथ जोड़ें
-                        block_words = sorted(block_words, key=lambda x: (round(x['top'] / 5), x['x0']))
-                        full_text = " ".join([w['text'] for w in block_words]).strip()
-                        if full_text:
-                            return full_text
+                    if is_port_dest:
+                        # पोर्ट/डिस्चार्ज/डेस्टिनेशन के छोटे बॉक्स के लिए सटीक कोऑर्डिनेट्स
+                        box_x0 = kw_x0 - 10
+                        box_x1 = kw_x0 + 220
+                        box_y0 = kw_y0 + 10    # कीवर्ड लाइन के नीचे
+                        box_y1 = kw_y0 + 45    # बॉक्स की गहराई
+                        
+                        box_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
+                        if box_words:
+                            box_words = sorted(box_words, key=lambda x: (round(x['top'] / 5), x['x0']))
+                            return " ".join([w['text'] for w in box_words]).strip()
                     else:
-                        # कंसैनी/पते के लिए मल्टी-लाइन लॉजिक
+                        # कंसैनी और बड़े पतों के लिए बॉक्स लॉजिक
+                        box_x0 = kw_x0 - 5
+                        box_x1 = kw_x0 + 260
+                        box_y0 = kw_y0 - 2
+                        box_y1 = kw_y0 + 130
+                        
+                        block_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
                         lines_dict = {}
                         for w in block_words:
                             line_y = round(w['top'] / 4) * 4
