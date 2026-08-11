@@ -85,7 +85,7 @@ def main():
     if not check_app_password():
         return
 
-    # यदि एडमिन लॉगिन (authenticated) है, तो केवल एडमिन ज़ोन दिखाएं, मुख्य पेज छिपा दें
+    # 🚀 मुख्य सुधार: यदि एडमिन लॉगिन है, तो केवल एडमिन ज़ोन दिखाएं, मुख्य PDF प्रोसेसर छिपा दें
     if st.session_state.admin_authenticated:
         check_admin_password()
     else:
