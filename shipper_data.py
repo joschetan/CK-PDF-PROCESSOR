@@ -1,7 +1,7 @@
 import streamlit as st
 import pdfplumber
 import re
-from io import BytesIO
+import io
 
 from pdf_engine import extract_header_value
 from github_sync import fetch_rules_from_github, push_rules_to_github
