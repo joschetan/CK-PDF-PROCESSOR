@@ -145,7 +145,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         except Exception:
             pass
 
-    # 🚀 STABLE & UNIVERSAL 'Below (नीचे)' OPTION WITH STRICT X-AXIS BOUNDARY
+    # 🚀 SMART INTELLIGENT COLUMN EXTRACTOR (Left vs Right Column Separation)
     if position == "Below (नीचे)" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -165,8 +165,14 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                     # कीवर्ड के ঠিক नीचे (Vertical Range) मौजूद शब्दों को ढूंढना
                     below_words = [w for w in words if kw_y0 + 8 <= w['top'] <= kw_y0 + 32]
                     if below_words:
-                        # 🛠️ पक्का नियम: अगर फील्ड या कीवर्ड में 'discharge' या 'port' है, तो केवल बाएं कॉलम (X0 < 135) के शब्द लें
-                        if "discharge" in full_kw or "port" in full_kw or "discharge" in field_label.lower() or "port" in field_label.lower():
+                        f_label = field_label.lower()
+                        kw_lower = full_kw
+                        
+                        # यदि फील्ड या कीवर्ड में 'destination' या 'final' है -> केवल दाहिना कॉलम (X0 >= 140) उठाएं
+                        if "destination" in f_label or "destination" in kw_lower or "final" in f_label:
+                            below_words = [w for w in below_words if w['x0'] >= 140]
+                        # यदि फील्ड या कीवर्ड में 'discharge' या 'port' है -> केवल बायां कॉलम (X0 < 135) उठाएं
+                        elif "discharge" in f_label or "discharge" in kw_lower or "port" in f_label:
                             below_words = [w for w in below_words if w['x0'] < 135]
                         
                         below_words = sorted(below_words, key=lambda x: (round(x['top'] / 5), x['x0']))
