@@ -1,4 +1,5 @@
 import re
+import pdfplumber
 from pdf_engine import apply_rule_filter
 
 def extract_bkt_items(pdf_lines, pdf_text=""):
@@ -67,15 +68,72 @@ def extract_bkt_items(pdf_lines, pdf_text=""):
         
     return extracted_items
 
+def extract_bkt_header_value(pdf_bytes, keyword, field_label=""):
+    """
+    BKT Register के लेआउट के अनुसार विशिष्ट रूप से Left Column (Port of Discharge) 
+    और Right Column (Final Destination) को उनके X-Axis कोऑर्डिनेट्स के आधार पर अलग करने वाला पार्सर नियम।
+    """
+    try:
+        with pdfplumber.open(pdf_bytes) as pdf:
+            page = pdf.pages[0]
+            words = page.extract_words()
+            full_kw = keyword.strip().lower()
+            
+            target_kw_words = []
+            for w in words:
+                if full_kw in w['text'].lower() or all(p in w['text'].lower() for p in full_kw.split()):
+                    # यदि कीवर्ड 'destination' है, तो ऊपर वाले 'Country of final destination' (Top < 250) को छोड़ दें
+                    if "destination" in full_kw and w['top'] < 250:
+                        continue
+                    target_kw_words.append(w)
+            
+            if target_kw_words:
+                kw_word = target_kw_words[0]
+                kw_y0 = kw_word['top']
+                
+                # कीवर्ड के ठीक नीचे मौजूद शब्दों को ढूंढना
+                below_words = [w for w in words if kw_y0 + 8 <= w['top'] <= kw_y0 + 32]
+                if below_words:
+                    f_label = field_label.lower()
+                    kw_lower = full_kw
+                    
+                    # यदि फील्ड या कीवर्ड में 'destination' या 'final' है -> केवल दाहिना कॉलम (X0 >= 140) उठाएं
+                    if "destination" in f_label or "destination" in kw_lower or "final" in f_label:
+                        below_words = [w for w in below_words if w['x0'] >= 140]
+                    # यदि फील्ड या कीवर्ड में 'discharge' या 'port' है -> केवल बायां कॉलम (X0 < 135) उठाएं
+                    elif "discharge" in f_label or "discharge" in kw_lower or "port" in f_label:
+                        below_words = [w for w in below_words if w['x0'] < 135]
+                    
+                    below_words = sorted(below_words, key=lambda x: (round(x['top'] / 5), x['x0']))
+                    extracted_below = " ".join([w['text'] for w in below_words]).strip()
+                    if extracted_below:
+                        # डुप्लीकेट शब्द हटाने का लॉजिक
+                        words_list = extracted_below.split()
+                        unique_words = []
+                        for w in words_list:
+                            if not unique_words or unique_words[-1].lower() != w.lower():
+                                unique_words.append(w)
+                        n = len(unique_words)
+                        if n % 2 == 0:
+                            half = n // 2
+                            if [w.lower() for w in unique_words[:half]] == [w.lower() for w in unique_words[half:]]:
+                                unique_words = unique_words[:half]
+                        return " ".join(unique_words).strip()
+    except Exception:
+        pass
+    return ""
+
 def map_items_to_excel_dynamic(
     ws, parsed_items, resolved_item_rules, 
     inv_sr_no=1, start_overall_sr=1, start_excel_row=2, 
     default_invoice_no="", default_invoice_date="", 
-    pdf_text="", lut_kws="", paid_kws="", parser_rule="parser_bkt_register"
+    pdf_text="", lut_kws="", paid_kws="", parser_rule="parser_bkt_register",
+    pdf_bytes=None, mapping_rules=None, pdf_lines=None
 ):
     """
     मल्टीपल PDF प्रोसेसिंग के बाद Container Number (Col L) के आधार पर 
     समान पंक्तियों को मर्ज करता है, कॉमा से वैल्यू जोड़ता है और N, O, P का टोटल करता है।
+    साथ ही हेडर मैपिंग के दौरान BKT विशिष्ट कॉलम एक्सट्रैक्शन का उपयोग करता है।
     """
     current_excel_row = start_excel_row
     overall_sr = start_overall_sr
@@ -108,7 +166,6 @@ def map_items_to_excel_dynamic(
         overall_sr += 1
 
     # 2. ⚡ मर्जिंग और कंबाइनिंग लॉजिक (Column L के आधार पर)
-    # हम Row 2 से लेकर आखिरी भरी हुई रो तक को स्कैन करेंगे
     max_r = ws.max_row
     if max_r > 2:
         row_map = {} # { container_no: [row_numbers] }
@@ -124,12 +181,10 @@ def map_items_to_excel_dynamic(
             if len(r_list) > 1:
                 primary_r = r_list[0] # पहली रो को मुख्य मानेंगे
                 
-                # कंबाइन करने के लिए लिस्ट तैयार करना
                 h_vals, i_vals, w_vals = [], [], []
                 tot_net, tot_gross, tot_qty = 0.0, 0.0, 0
                 
                 for r in r_list:
-                    # Column H, I, W वैल्यूज़ कलेक्ट करना
                     val_h = str(ws[f"H{r}"].value or "").strip()
                     val_i = str(ws[f"I{r}"].value or "").strip()
                     val_w = str(ws[f"W{r}"].value or "").strip()
@@ -137,14 +192,12 @@ def map_items_to_excel_dynamic(
                     if val_h and val_h not in h_vals: h_vals.append(val_h)
                     if val_i and val_i not in i_vals: i_vals.append(val_i)
                     
-                    # HS Codes को अलग करके यूनिक रखना
                     if val_w:
                         for code in val_w.split(","):
                             c_clean = code.strip()
                             if c_clean and c_clean not in w_vals:
                                 w_vals.append(c_clean)
                                 
-                    # N, O, P का टोटल जोड़ना
                     try: tot_net += float(ws[f"N{r}"].value or 0)
                     except: pass
                     
@@ -154,7 +207,6 @@ def map_items_to_excel_dynamic(
                     try: tot_qty += int(ws[f"P{r}"].value or 0)
                     except: pass
                 
-                # Primary Row पर मर्ज किया हुआ डेटा सेट करना
                 ws[f"H{primary_r}"] = ", ".join(h_vals)
                 ws[f"I{primary_r}"] = ", ".join(i_vals)
                 ws[f"W{primary_r}"] = ", ".join(w_vals)
@@ -163,11 +215,9 @@ def map_items_to_excel_dynamic(
                 ws[f"O{primary_r}"] = round(tot_gross, 3)
                 ws[f"P{primary_r}"] = int(tot_qty)
                 
-                # बाकी डुप्लीकेट रो को डिलीट करने के लिए मार्क करना
                 for r in r_list[1:]:
                     rows_to_delete.add(r)
         
-        # बची हुई या डिलीट होने वाली पंक्तियों को छोड़कर नई साफ़ लिस्ट बनाना
         if rows_to_delete:
             all_data = []
             headers = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
@@ -178,12 +228,10 @@ def map_items_to_excel_dynamic(
                     if any(row_vals):
                         all_data.append(row_vals)
             
-            # पुरानी टेबल साफ़ करें
             for r in range(2, ws.max_row + 1):
                 for c in range(1, ws.max_column + 1):
                     ws.cell(row=r, column=c).value = None
             
-            # अपडेटेड डेटा दोबारा लिखें
             write_r = 2
             for r_data in all_data:
                 for c_idx, val in enumerate(r_data, start=1):
