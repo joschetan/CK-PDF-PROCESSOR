@@ -74,8 +74,8 @@ def apply_rule_filter(raw_text, mode, stop_kw, flt, keyword=""):
 def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, filter_type, field_label="", pdf_bytes=None):
     raw_t = ""
     
-    # 📦 SUPER SMART EXTRACT INSIDE BOX ENGINE
-    if "Extract Inside" in position and pdf_bytes and keyword:
+    # 📦 1. पुराना सुरक्षित 'Extract Inside' (कंसाईनी और पते के लिए जैसा का तैसा रखा है)
+    if position == "📦 Extract Inside Box (डब्बे के अंदर का टेक्स्ट)" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
                 page = pdf.pages[0]
@@ -83,8 +83,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                 
                 kw_word = None
                 for w in words:
-                    # कीवर्ड को आंशिक रूप से मैच करने के लिए (जैसे 'Port of discharge' में से 'discharge' या 'port')
-                    if any(k.lower() in w['text'].lower() for k in keyword.split()):
+                    if keyword.lower() in w['text'].lower():
                         kw_word = w
                         break
                 
@@ -92,48 +91,67 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                     kw_x0 = kw_word['x0']
                     kw_y0 = kw_word['top']
                     
-                    is_port_dest = any(k in keyword.lower() for k in ["port", "destination", "discharge", "loading"])
+                    box_x0 = kw_x0 - 5
+                    box_x1 = kw_x0 + 260
+                    box_y0 = kw_y0 - 2
+                    box_y1 = kw_y0 + 130
                     
-                    if is_port_dest:
-                        # पोर्ट/डिस्चार्ज/डेस्टिनेशन के छोटे बॉक्स के लिए सटीक कोऑर्डिनेट्स
-                        box_x0 = kw_x0 - 10
-                        box_x1 = kw_x0 + 220
-                        box_y0 = kw_y0 + 10    # कीवर्ड लाइन के नीचे
-                        box_y1 = kw_y0 + 45    # बॉक्स की गहराई
+                    block_words = []
+                    for w in words:
+                        if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1:
+                            block_words.append(w)
+                    
+                    lines_dict = {}
+                    for w in block_words:
+                        line_y = round(w['top'] / 4) * 4
+                        lines_dict.setdefault(line_y, []).append(w)
                         
-                        box_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
-                        if box_words:
-                            box_words = sorted(box_words, key=lambda x: (round(x['top'] / 5), x['x0']))
-                            return " ".join([w['text'] for w in box_words]).strip()
-                    else:
-                        # कंसैनी और बड़े पतों के लिए बॉक्स लॉजिक
-                        box_x0 = kw_x0 - 5
-                        box_x1 = kw_x0 + 260
-                        box_y0 = kw_y0 - 2
-                        box_y1 = kw_y0 + 130
+                    sorted_y = sorted(lines_dict.keys())
+                    result_lines = []
+                    stop_markers = ["notify:", "pre-carriage", "vessel", "port of", "place of", "terms of", "buyer's order"]
+                    
+                    for y in sorted_y:
+                        line_words = sorted(lines_dict[y], key=lambda x: x['x0'])
+                        line_text = " ".join([w['text'] for w in line_words]).strip()
+                        if not line_text: continue
                         
-                        block_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
-                        lines_dict = {}
-                        for w in block_words:
-                            line_y = round(w['top'] / 4) * 4
-                            lines_dict.setdefault(line_y, []).append(w)
-                            
-                        sorted_y = sorted(lines_dict.keys())
-                        result_lines = []
-                        stop_markers = ["notify:", "pre-carriage", "vessel", "port of", "place of", "terms of", "buyer's order"]
+                        lower_lt = line_text.lower()
+                        if any(marker in lower_lt for marker in stop_markers if marker not in keyword.lower()):
+                            break
+                        result_lines.append(line_text)
                         
-                        for y in sorted_y:
-                            line_words = sorted(lines_dict[y], key=lambda x: x['x0'])
-                            line_text = " ".join([w['text'] for w in line_words]).strip()
-                            if not line_text: continue
-                            
-                            lower_lt = line_text.lower()
-                            if any(marker in lower_lt for marker in stop_markers if marker not in keyword.lower()):
-                                break
-                            result_lines.append(line_text)
-                            
-                        if result_lines:
-                            return "\n".join(result_lines).strip()
+                    if result_lines:
+                        return "\n".join(result_lines).strip()
+        except Exception:
+            pass
+
+    # 📦 2. NEW DEDICATED 'box' OPTION (केवल पोर्ट और डेस्टिनेशन के लिए)
+    if position == "box" and pdf_bytes and keyword:
+        try:
+            with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+                page = pdf.pages[0]
+                words = page.extract_words()
+                
+                kw_word = None
+                for w in words:
+                    if keyword.lower() in w['text'].lower():
+                        kw_word = w
+                        break
+                
+                if kw_word:
+                    kw_x0 = kw_word['x0']
+                    kw_y0 = kw_word['top']
+                    
+                    # पोर्ट वाले छोटे बॉक्स के अंदर का क्षेत्र (कीवर्ड के ठीक नीचे)
+                    box_x0 = kw_x0 - 8
+                    box_x1 = kw_x0 + 200
+                    box_y0 = kw_y0 + 8
+                    box_y1 = kw_y0 + 40
+                    
+                    box_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
+                    if box_words:
+                        box_words = sorted(box_words, key=lambda x: (round(x['top'] / 5), x['x0']))
+                        return " ".join([w['text'] for w in box_words]).strip()
         except Exception:
             pass
 
@@ -159,7 +177,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
     else:
         raw_t = pdf_text
 
-    if "Inside Box" in position:
+    if "Inside Box" in position or position == "box":
         return raw_t.strip()
         
     return apply_rule_filter(raw_t, mode, stop_kw, filter_type, keyword)
