@@ -181,7 +181,7 @@ def render_shipper_data():
                     "Target Tab / Sheet Name:",
                     value=shipper_info.get("target_tab_name", "Sheet1"),
                     key=f"target_tab_name_{selected_shipper}",
-                    placeholder="उदा: INV या Sheet1"
+                    placeholder="उदा: mundra या Sheet1"
                 )
             
             shipper_info["target_sheet_link"] = target_sheet_link
