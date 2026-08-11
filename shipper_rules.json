@@ -2,7 +2,7 @@
     "BKT MUNDRA REGISTER": {
         "mapping_rules": {
             "FINAL DESTINATION": {
-                "keyword": "final destination",
+                "keyword": "destination",
                 "position": "Below (\u0928\u0940\u091a\u0947)",
                 "cell": "C",
                 "match_mode": "Full Line",
