@@ -2,6 +2,28 @@ import re
 import io
 import pdfplumber
 
+def remove_duplicate_phrases(text):
+    if not text:
+        return ""
+    words = str(text).strip().split()
+    if not words:
+        return ""
+    
+    # लगातार आने वाले डुप्लीकेट शब्दों को हटाना
+    unique_words = []
+    for w in words:
+        if not unique_words or unique_words[-1].lower() != w.lower():
+            unique_words.append(w)
+            
+    # यदि पूरा वाक्यांश या आधा हिस्सा दो बार रिपीट हो रहा हो (जैसे A B C A B C)
+    n = len(unique_words)
+    if n % 2 == 0:
+        half = n // 2
+        if [w.lower() for w in unique_words[:half]] == [w.lower() for w in unique_words[half:]]:
+            unique_words = unique_words[:half]
+            
+    return " ".join(unique_words).strip()
+
 def apply_value_replacement(extracted_text, mapping_str):
     if not extracted_text or not mapping_str or "=" not in mapping_str:
         return extracted_text
@@ -30,7 +52,7 @@ def apply_rule_filter(raw_text, mode, stop_kw, flt, keyword=""):
     if text.startswith(":"): text = text[1:].strip()
     
     if keyword and ("consignee" in keyword.lower() or "buyer" in keyword.lower()):
-        return text
+        return remove_duplicate_phrases(text)
 
     if mode == "Word Position" or mode.startswith("Word "):
         w_num = int(stop_kw.strip()) if stop_kw and str(stop_kw).strip().isdigit() else 1
@@ -69,7 +91,7 @@ def apply_rule_filter(raw_text, mode, stop_kw, flt, keyword=""):
 
     if stop_kw and "=" in stop_kw: text = apply_value_replacement(text, stop_kw)
     if flt and "=" in flt: text = apply_value_replacement(text, flt)
-    return text.strip()
+    return remove_duplicate_phrases(text)
 
 def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, filter_type, field_label="", pdf_bytes=None):
     raw_t = ""
@@ -120,7 +142,8 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                         result_lines.append(line_text)
                         
                     if result_lines:
-                        return "\n".join(result_lines).strip()
+                        final_res = "\n".join(result_lines).strip()
+                        return remove_duplicate_phrases(final_res)
         except Exception:
             pass
 
@@ -167,7 +190,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                             
                         extracted_box_text = " ".join([w['text'] for w in filtered_words]).strip()
                         if extracted_box_text:
-                            return extracted_box_text
+                            return remove_duplicate_phrases(extracted_box_text)
         except Exception:
             pass
 
@@ -193,7 +216,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         raw_t = pdf_text
 
     if "Inside Box" in position or position == "box":
-        return raw_t.strip()
+        return remove_duplicate_phrases(raw_t.strip())
         
     return apply_rule_filter(raw_t, mode, stop_kw, filter_type, keyword)
 
