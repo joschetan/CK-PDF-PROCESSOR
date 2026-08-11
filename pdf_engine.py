@@ -145,52 +145,36 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         except Exception:
             pass
 
-    if position == "box" and pdf_bytes and keyword:
+    # 🚀 STRONGER & SMARTER 'Below (नीचे)' OPTION (बिना बॉक्स के सटीक लाइन उठाने के लिए)
+    if position == "Below (नीचे)" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
                 page = pdf.pages[0]
-                full_kw = keyword.strip().lower()
                 words = page.extract_words()
+                full_kw = keyword.strip().lower()
                 
                 kw_word = None
                 for w in words:
-                    if w['top'] > 50:
-                        if full_kw in w['text'].lower() or all(part in w['text'].lower() for part in full_kw.split()):
-                            kw_word = w
-                            break
-                
-                if not kw_word:
-                    last_token = full_kw.split()[-1] if full_kw.split() else ""
-                    for w in words:
-                        if w['top'] > 50 and last_token and last_token in w['text'].lower():
-                            kw_word = w
-                            break
+                    if full_kw in w['text'].lower() or all(p in w['text'].lower() for p in full_kw.split()):
+                        kw_word = w
+                        break
                 
                 if kw_word:
                     kw_x0 = kw_word['x0']
+                    kw_x1 = kw_word['x1']
                     kw_y0 = kw_word['top']
                     
-                    box_x0 = kw_x0 - 5
-                    box_x1 = kw_x0 + 115  
-                    box_y0 = kw_y0 + 10
-                    box_y1 = kw_y0 + 25   # सुरक्षित ऊँचाई ताकि नीचे की टेबल न आए
-                    
-                    box_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
-                    if box_words:
-                        box_words = sorted(box_words, key=lambda x: x['x0'])
+                    # कीवर्ड के ঠিক नीचे (थोड़ी सी Vertical Range में) मौजूद शब्दों को ढूंढना
+                    below_words = [w for w in words if kw_y0 + 8 <= w['top'] <= kw_y0 + 32 and w['x0'] >= kw_x0 - 10]
+                    if below_words:
+                        # अगर पोर्ट ऑफ डिस्चार्ज है, तो सिर्फ बाएं कॉलम तक सीमित रखें (दाहिने कॉलम को काट दें)
+                        if "discharge" in full_kw or "loading" in full_kw:
+                            below_words = [w for w in below_words if w['x0'] < kw_x0 + 130]
                         
-                        filtered_words = []
-                        stop_text = str(stop_kw).strip().lower() if stop_kw else ""
-                        
-                        for w in box_words:
-                            w_txt = w['text'].lower()
-                            if stop_text and (stop_text in w_txt or w_txt.startswith(stop_text)):
-                                break
-                            filtered_words.append(w)
-                            
-                        extracted_box_text = " ".join([w['text'] for w in filtered_words]).strip()
-                        if extracted_box_text:
-                            return remove_duplicate_phrases(extracted_box_text)
+                        below_words = sorted(below_words, key=lambda x: (round(x['top'] / 5), x['x0']))
+                        extracted_below = " ".join([w['text'] for w in below_words]).strip()
+                        if extracted_below:
+                            return remove_duplicate_phrases(extracted_below)
         except Exception:
             pass
 
