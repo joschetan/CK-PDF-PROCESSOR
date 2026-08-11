@@ -152,12 +152,20 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                     box_x0 = kw_x0 - 10
                     box_x1 = kw_x0 + 170
                     box_y0 = kw_y0 + 8
-                    box_y1 = kw_y0 + 40
+                    box_y1 = kw_y0 + 35  # ऊँचाई को सुरक्षित सीमा में रखा गया है ताकि नीचे की लाइन न आए
                     
                     box_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
                     if box_words:
-                        box_words = sorted(box_words, key=lambda x: (round(x['top'] / 5), x['x0']))
-                        extracted_box_text = " ".join([w['text'] for w in box_words]).strip()
+                        # यदि स्टॉप वर्ड (Stop Keyword) दिया गया है, तो उसे मिलने पर शब्दों को छांट लें
+                        filtered_words = []
+                        stop_text = str(stop_kw).strip().lower() if stop_kw else ""
+                        
+                        for w in sorted(box_words, key=lambda x: (round(x['top'] / 5), x['x0'])):
+                            if stop_text and stop_text in w['text'].lower():
+                                break
+                            filtered_words.append(w)
+                            
+                        extracted_box_text = " ".join([w['text'] for w in filtered_words]).strip()
                         if extracted_box_text:
                             return extracted_box_text
         except Exception:
