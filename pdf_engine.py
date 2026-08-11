@@ -145,7 +145,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         except Exception:
             pass
 
-    # 📦 MANUAL CONTROLLED WIDTH BOX OPTION (बिना रेक्टेंगल लूप के सीधे कंट्रोल)
+    # 📦 MANUAL CONTROLLED WIDTH BOX OPTION (सही Left-to-Right सॉर्टिंग के साथ)
     if position == "box" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -179,6 +179,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                     
                     box_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
                     if box_words:
+                        # शब्दों को हमेशा बाएं से दाएं (Left to Right) सही क्रम में सॉर्ट करना
                         box_words = sorted(box_words, key=lambda x: x['x0'])
                         
                         filtered_words = []
@@ -232,3 +233,4 @@ def detect_igst_status(pdf_text, lut_keywords="", paid_keywords=""):
     for kw in custom_paid_kws:
         if kw in text_lower: return "P" 
     return "UNKNOWN"
+```[cite: 6]
