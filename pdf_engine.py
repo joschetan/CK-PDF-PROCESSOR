@@ -173,7 +173,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                     kw_y0 = kw_word['top']
                     
                     # इस कीवर्ड को घेरने वाले असली रेक्टेंगल/डब्बे की तलाश
-                    box_x0, box_x1, box_y0, box_y1 = kw_x0 - 5, kw_x0 + 140, kw_y0 + 10, kw_y0 + 40
+                    box_x0, box_x1, box_y0, box_y1 = kw_x0 - 5, kw_x0 + 170, kw_y0 + 10, kw_y0 + 40
                     
                     for r in rects:
                         if r['x0'] <= kw_x0 <= r['x1'] and r['top'] <= kw_y0 <= r['bottom']:
