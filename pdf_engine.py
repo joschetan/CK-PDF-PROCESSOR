@@ -145,6 +145,7 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         except Exception:
             pass
 
+    # ⚓ PORT OF DISCHARGE DEDICATED BOX LOGIC
     if position == "box" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -170,10 +171,11 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                     kw_x0 = kw_word['x0']
                     kw_y0 = kw_word['top']
                     
+                    # Port of discharge के लिए विशेष रूप से संतुलित चौड़ाई और ऊंचाई
                     box_x0 = kw_x0 - 5
-                    box_x1 = kw_x0 + 115
+                    box_x1 = kw_x0 + 130  # सिर्फ बाएं बॉक्स के अंदर सीमित रखने के लिए
                     box_y0 = kw_y0 + 10
-                    box_y1 = kw_y0 + 35
+                    box_y1 = kw_y0 + 32   # नीचे की टेबल को क्रॉस न करने के लिए सुरक्षित ऊंचाई
                     
                     box_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
                     if box_words:
@@ -230,3 +232,4 @@ def detect_igst_status(pdf_text, lut_keywords="", paid_keywords=""):
     for kw in custom_paid_kws:
         if kw in text_lower: return "P" 
     return "UNKNOWN"
+```[cite: 7]
