@@ -74,7 +74,6 @@ def apply_rule_filter(raw_text, mode, stop_kw, flt, keyword=""):
 def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, filter_type, field_label="", pdf_bytes=None):
     raw_t = ""
     
-    # 📦 1. पुराना सुरक्षित 'Extract Inside Box' (कंसाईनी और पते के लिए)
     if position == "📦 Extract Inside Box (डब्बे के अंदर का टेक्स्ट)" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -125,7 +124,6 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         except Exception:
             pass
 
-    # 📦 2. STRICT COLUMN-ISOLATED 'box' OPTION
     if position == "box" and pdf_bytes and keyword:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -133,7 +131,6 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                 full_kw = keyword.strip().lower()
                 words = page.extract_words()
                 
-                # सटीक कीवर्ड वाले शब्द या टोकन ढूँढना (ऊपर के 150 px को छोड़कर)
                 kw_word = None
                 for w in words:
                     if w['top'] > 150:
@@ -141,12 +138,10 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                             kw_word = w
                             break
                 
-                # यदि पूरा वाक्यांश एक शब्द में न मिले, तो उसका आखिरी हिस्सा (जैसे 'discharge' या 'destination') ढूँढें
                 if not kw_word:
                     last_token = full_kw.split()[-1] if full_kw.split() else ""
                     for w in words:
                         if w['top'] > 150 and last_token and last_token in w['text'].lower():
-                            # यह सुनिश्चित करना कि यह सही कॉलम में हो (जैसे Port of discharge बाएं कॉलम में होता है)
                             kw_word = w
                             break
                 
@@ -154,11 +149,10 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
                     kw_x0 = kw_word['x0']
                     kw_y0 = kw_word['top']
                     
-                    # 📐 कॉलम और बॉक्स की सख्त सीमा (Width को सीमित रखा है ताकि बगल वाले बॉक्स का डेटा न आए)
                     box_x0 = kw_x0 - 10
-                    box_x1 = kw_x0 + 170  # चौड़ाई सीमित की ताकि दूसरे कॉलम में न जाए
+                    box_x1 = kw_x0 + 170
                     box_y0 = kw_y0 + 8
-                    box_y1 = kw_y0 + 40   # ऊँचाई सीमित की ताकि नीचे की टेबल न आए
+                    box_y1 = kw_y0 + 40
                     
                     box_words = [w for w in words if box_x0 <= w['x0'] <= box_x1 and box_y0 <= w['top'] <= box_y1]
                     if box_words:
@@ -169,7 +163,6 @@ def extract_header_value(pdf_lines, pdf_text, keyword, position, mode, stop_kw, 
         except Exception:
             pass
 
-    # --- सामान्य बैकअप लॉजिक ---
     if filter_type == "Exact Keyword Paste (If Found)":
         raw_t = pdf_text
     elif keyword:
@@ -206,4 +199,3 @@ def detect_igst_status(pdf_text, lut_keywords="", paid_keywords=""):
     for kw in custom_paid_kws:
         if kw in text_lower: return "P" 
     return "UNKNOWN"
-```[cite: 4]
